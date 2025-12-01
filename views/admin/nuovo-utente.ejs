@@ -1,0 +1,285 @@
+
+    <h1>Aggiungi Nuovo Utente</h1>
+    
+    <!-- Messaggi di errore e successo -->
+    <% if (errorMessage) { %>
+      <div class="error-message">
+        ❌ <%= errorMessage %>
+      </div>
+    <% } %>
+    
+    <% if (successMessage) { %>
+      <div class="success-message">
+        ✅ <%= successMessage %>
+      </div>
+    <% } %>
+    
+    <div class="page-header">
+      <h1><i class="fas fa-user-plus"></i> Aggiungi Nuovo Utente</h1>
+      <p>Crea un nuovo utente per il sistema ICONIC</p>
+      <div style="background: #e3f2fd; border: 1px solid #2196f3; padding: 10px; border-radius: 5px; margin-top: 10px;">
+        <i class="fas fa-info-circle" style="color: #2196f3;"></i>
+        <strong>Nota:</strong> Puoi creare Admin, Pre-Admin e PR. Gli Admin possono modificare solo i propri dati, non quelli di altri Admin.
+      </div>
+    </div>
+
+    <div class="form-container mobile-form-container">
+      <form method="POST" action="/admin/nuovo-utente" class="user-form mobile-form">
+        <div class="mobile-form-group">
+          <label class="mobile-form-label">👤 Ruolo:</label>
+          <select name="ruolo" id="ruolo-select" class="mobile-form-select" required>
+            <option value="admin" <%= (formData && formData.ruolo === 'admin') ? 'selected' : '' %>>🔴 Admin</option>
+            <option value="pre_admin" <%= (!formData || !formData.ruolo || formData.ruolo === 'pre_admin') ? 'selected' : '' %>>🟠 Pre-Admin</option>
+            <option value="pr" <%= (formData && formData.ruolo === 'pr') ? 'selected' : '' %>>🔵 PR</option>
+          </select>
+        </div>
+        
+        <div class="mobile-form-group">
+          <label class="mobile-form-label">👨‍💼 Supervisor:</label>
+          <select name="padre_id" id="padre-select" class="mobile-form-select"></select>
+        </div>
+        
+        <div class="mobile-form-group">
+          <label class="mobile-form-label">🏷️ Nickname:</label>
+          <input type="text" name="nickname" class="mobile-form-input" value="<%= formData && formData.nickname ? formData.nickname : '' %>" required>
+        </div>
+        
+        <div class="mobile-form-group">
+          <label class="mobile-form-label">👤 Nome:</label>
+          <input type="text" name="nome" class="mobile-form-input" value="<%= formData && formData.nome ? formData.nome : '' %>" required>
+        </div>
+        
+        <div class="mobile-form-group">
+          <label class="mobile-form-label">👤 Cognome:</label>
+          <input type="text" name="cognome" class="mobile-form-input" value="<%= formData && formData.cognome ? formData.cognome : '' %>" required>
+        </div>
+        
+        <div class="mobile-form-group">
+          <label class="mobile-form-label">📱 Telefono:</label>
+          <input type="text" name="numero_telefono" class="mobile-form-input" value="<%= formData && formData.numero_telefono ? formData.numero_telefono : '' %>" required>
+        </div>
+        
+        <div class="mobile-form-group">
+          <label class="mobile-form-label">🔒 Password:</label>
+          <input type="password" name="password" class="mobile-form-input" value="<%= formData && formData.password ? formData.password : '' %>" required>
+        </div>
+        
+        <div class="mobile-form-group">
+          <label class="mobile-form-label">💰 Percentuale Provvigione (%):</label>
+          <input type="number" name="percentuale_provvigione" class="mobile-form-input" value="<%= formData && formData.percentuale_provvigione ? formData.percentuale_provvigione : '' %>" min="0" max="100" step="0.01" required>
+        </div>
+        
+        <div class="mobile-form-group" id="poteri-label" style="display:none;">
+          <label class="mobile-form-label">⚡ Poteri Speciali:</label>
+          <div style="display: flex; align-items: center; gap: 10px; margin-top: 8px;">
+            <input type="checkbox" id="poteri-checkbox" name="poteri" value="1" <%= (formData && formData.poteri) ? 'checked' : '' %> style="width: 20px; height: 20px;">
+            <span class="checkbox-helper">Concedi poteri operativi speciali al PR</span>
+          </div>
+        </div>
+        
+        <button type="submit" class="btn btn-primary-mobile submit-button" style="width: 100%; margin-top: 20px; position: relative; z-index: 1000; pointer-events: auto;">
+          <i class="fas fa-user-plus"></i> Crea Utente
+        </button>
+      </form>
+    </div>
+    <style>
+      .error-message {
+        background-color: #ffe6e6;
+        border: 1px solid #ff6b6b;
+        color: #c92a2a;
+        padding: 12px 16px;
+        border-radius: 4px;
+        margin-bottom: 20px;
+        font-weight: 500;
+      }
+      
+      .success-message {
+        background-color: #e6ffe6;
+        border: 1px solid #51cf66;
+        color: #2f9e41;
+        padding: 12px 16px;
+        border-radius: 4px;
+        margin-bottom: 20px;
+        font-weight: 500;
+      }
+      
+      .checkbox-helper {
+        font-size: 0.9em;
+        color: #666;
+        margin-left: 10px;
+      }
+      
+      /* CSS specifico per il bottone submit */
+      .submit-button {
+        position: relative !important;
+        z-index: 1000 !important;
+        pointer-events: auto !important;
+        cursor: pointer !important;
+        -webkit-appearance: none !important;
+        appearance: none !important;
+        touch-action: manipulation !important;
+        user-select: none !important;
+        -webkit-user-select: none !important;
+        -webkit-tap-highlight-color: rgba(0,0,0,0.1) !important;
+      }
+      
+      .submit-button:hover {
+        transform: translateY(-1px) !important;
+        box-shadow: 0 4px 12px rgba(0,123,255,0.3) !important;
+      }
+      
+      .submit-button:active {
+        transform: translateY(0) !important;
+        box-shadow: 0 2px 8px rgba(0,123,255,0.2) !important;
+      }
+      
+      #poteri-label {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      
+      #poteri-checkbox {
+        margin: 0 5px;
+        transform: scale(1.2);
+      }
+      
+      .poteri-info {
+        background: #f0f8ff;
+        border: 1px solid #b0d4f1;
+        border-radius: 4px;
+        padding: 10px;
+        margin-top: 5px;
+        font-size: 0.9em;
+        color: #2c5282;
+      }
+    </style>
+    <script>
+      // Dati utenti per la gerarchia
+      const utenti = JSON.parse('<%- JSON.stringify(utenti) %>');
+      
+      // Dati del form preservati (se disponibili)
+      const formData = <% if (formData) { %><%- JSON.stringify(formData) %><% } else { %>null<% } %>;
+      
+      function aggiornaPadri() {
+        const ruolo = document.getElementById('ruolo-select').value;
+        const padreSelect = document.getElementById('padre-select');
+        const selectedPadreId = formData ? formData.padre_id : null;
+        
+        padreSelect.innerHTML = '';
+        if (ruolo === 'admin') {
+          padreSelect.innerHTML = '<option value="">Nessuno</option>';
+          padreSelect.disabled = true;
+        } else if (ruolo === 'pre_admin') {
+          padreSelect.disabled = false;
+          utenti.filter(u => u.ruolo === 'admin').forEach(u => {
+            const selected = selectedPadreId == u.id ? 'selected' : '';
+            padreSelect.innerHTML += `<option value="${u.id}" ${selected}>${u.nickname} (admin)</option>`;
+          });
+        } else if (ruolo === 'pr') {
+          padreSelect.disabled = false;
+          utenti.filter(u => u.ruolo === 'admin' || u.ruolo === 'pre_admin' || u.ruolo === 'pr').forEach(u => {
+            const selected = selectedPadreId == u.id ? 'selected' : '';
+            padreSelect.innerHTML += `<option value="${u.id}" ${selected}>${u.nickname} (${u.ruolo})</option>`;
+          });
+        }
+      }
+      document.addEventListener('DOMContentLoaded', function() {
+        aggiornaPadri();
+        const ruoloSelect = document.getElementById('ruolo-select');
+        const poteriLabel = document.getElementById('poteri-label');
+        const poteriCheckbox = document.getElementById('poteri-checkbox');
+        
+        // Funzione per gestire la visibilità dei poteri PR
+        function gestisciPoteri() {
+          if (ruoloSelect.value === 'pr') {
+            poteriLabel.style.display = 'flex';
+            // Aggiungi informazioni sui poteri se non esistono già
+            if (!document.querySelector('.poteri-info')) {
+              const infoPanotteri = document.createElement('div');
+              infoPanotteri.className = 'poteri-info';
+              infoPanotteri.innerHTML = '💡 <strong>Poteri PR:</strong> Consentono di gestire altri PR e accedere a funzioni avanzate. Di default è disabilitato per sicurezza.';
+              poteriLabel.appendChild(infoPanotteri);
+            }
+          } else {
+            poteriLabel.style.display = 'none';
+            // Rimuovi le informazioni sui poteri
+            const infoPoteri = document.querySelector('.poteri-info');
+            if (infoPoteri) {
+              infoPoteri.remove();
+            }
+            // Reset del checkbox quando non è PR
+            poteriCheckbox.checked = false;
+          }
+        }
+        
+        // Gestisci il cambio di ruolo
+        ruoloSelect.addEventListener('change', function() {
+          aggiornaPadri();
+          gestisciPoteri();
+        });
+        
+        // Feedback visivo per il checkbox
+        poteriCheckbox.addEventListener('change', function() {
+          const helper = document.querySelector('.checkbox-helper');
+          if (this.checked) {
+            helper.textContent = '✅ Poteri PR attivati';
+            helper.style.color = '#2d7a2d';
+          } else {
+            helper.textContent = 'Spunta per dare poteri speciali al PR';
+            helper.style.color = '#666';
+          }
+        });
+        
+        // Inizializza la gestione dei poteri
+        gestisciPoteri();
+
+        // SOLUZIONE DEFINITIVA per il submit del form
+        const form = document.querySelector('.user-form');
+        const submitBtn = document.querySelector('.submit-button');
+        
+        console.log('🔍 Form found:', !!form);
+        console.log('🔍 Submit button found:', !!submitBtn);
+        
+        // Rimuovi tutti gli event listener esistenti dal bottone
+        if (submitBtn) {
+          const newSubmitBtn = submitBtn.cloneNode(true);
+          submitBtn.parentNode.replaceChild(newSubmitBtn, submitBtn);
+          
+          // Aggiungi il nostro event listener pulito
+          newSubmitBtn.addEventListener('click', function(e) {
+            console.log('✅ Submit button clicked!');
+            
+            // Previeni comportamenti di default
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Validazione semplice
+            const nickname = document.querySelector('input[name="nickname"]').value.trim();
+            const nome = document.querySelector('input[name="nome"]').value.trim(); 
+            const cognome = document.querySelector('input[name="cognome"]').value.trim();
+            const password = document.querySelector('input[name="password"]').value.trim();
+            const telefono = document.querySelector('input[name="numero_telefono"]').value.trim();
+            
+            if (!nickname || !nome || !cognome || !password || !telefono) {
+              alert('⚠️ Compila tutti i campi obbligatori!');
+              return false;
+            }
+            
+            console.log('✅ Validation passed, submitting form...');
+            
+            // Submit manuale del form
+            if (form) {
+              form.submit();
+            }
+          });
+        }
+
+        // Event listener per il form submit (per debug)
+        if (form) {
+          form.addEventListener('submit', function(e) {
+            console.log('🚀 Form submit event triggered! Data being sent...');
+          });
+        }
+      });
+    </script>

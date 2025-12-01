@@ -1,0 +1,20 @@
+{
+  "apps": [{
+    "name": "iconic-staff",
+    "script": "server.js",
+    "env": {
+      "NODE_ENV": "development"
+    },
+    "env_production": {
+      "NODE_ENV": "production",
+      "PORT": 3000
+    },
+    "instances": 1,
+    "exec_mode": "cluster",
+    "watch": false,
+    "log_file": "./logs/combined.log",
+    "out_file": "./logs/out.log",
+    "error_file": "./logs/errors.log",
+    "log_date_format": "YYYY-MM-DD HH:mm Z"
+  }]
+}

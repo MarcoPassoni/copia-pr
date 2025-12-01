@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prenotazioni Tavoli</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" type="image/x-icon" sizes="32x32" href="/img/favicon.ico">
+  <style>
+    .prenotazione-form {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 12px rgba(44,62,80,0.08);
+      padding: 2rem 2.5rem;
+      max-width: 480px;
+      margin: 2rem auto 2.5rem auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1.1rem;
+    }
+    .prenotazione-form label {
+      font-weight: 500;
+      color: #234e7d;
+      margin-bottom: 0.2rem;
+    }
+    .prenotazione-form input, .prenotazione-form textarea {
+      border: 1px solid #dbeafe;
+      border-radius: 5px;
+      padding: 0.7rem;
+      font-size: 1.05rem;
+      background: #f8fafc;
+      margin-bottom: 0.2rem;
+    }
+    .prenotazione-form button {
+      background: #2b6cb0;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      padding: 0.9rem;
+      font-size: 1.1rem;
+      font-weight: bold;
+      margin-top: 0.7rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .prenotazione-form button:hover {
+      background: #234e7d;
+    }
+    .prenotazioni-table {
+      width: 100%;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 12px rgba(44,62,80,0.08);
+      margin: 0 auto 2rem auto;
+      border-collapse: separate;
+      border-spacing: 0;
+      overflow: hidden;
+    }
+    .prenotazioni-table th, .prenotazioni-table td {
+      padding: 1rem 1.2rem;
+      border-bottom: 1px solid #f1f5f9;
+      text-align: left;
+    }
+    .prenotazioni-table th {
+      background: #f4f6fa;
+      color: #2b6cb0;
+      font-weight: 600;
+    }
+    .prenotazioni-table tr:last-child td {
+      border-bottom: none;
+    }
+    .badge {
+      display: inline-block;
+      padding: 0.35em 0.8em;
+      border-radius: 12px;
+      font-size: 0.95em;
+      font-weight: 600;
+      color: #fff;
+    }
+    .badge.attesa { background: #f59e42; }
+    .badge.approvata { background: #38b000; }
+    .badge.rifiutata { background: #d90429; }
+    
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+      .prenotazione-form { 
+        max-width: 95vw; 
+        padding: 1.5rem 1rem 2rem 1rem; /* Aggiungi padding-bottom */
+        margin: 1rem auto 2rem auto; /* Aggiungi margin-bottom */
+      }
+      
+      .prenotazioni-table {
+        max-width: 95vw;
+        font-size: 0.9rem;
+        margin-bottom: 2rem; /* Spazio extra in fondo */
+      }
+      
+      .prenotazioni-table th,
+      .prenotazioni-table td {
+        padding: 0.5rem 0.3rem;
+        font-size: 0.85rem;
+      }
+      
+      /* Nascondi alcune colonne su mobile */
+      .prenotazioni-table th:nth-child(4),
+      .prenotazioni-table td:nth-child(4),
+      .prenotazioni-table th:nth-child(6),
+      .prenotazioni-table td:nth-child(6) {
+        display: none;
+      }
+      
+      .pianta-tavoli img {
+        width: 95% !important;
+      }
+      
+      /* Assicura spazio per il contenuto */
+      body {
+        padding-bottom: 3rem !important;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .prenotazione-form {
+        padding: 1rem 0.8rem 2.5rem 0.8rem; /* Ancora più padding-bottom */
+        margin: 0.5rem auto 3rem auto;
+      }
+      
+      .prenotazioni-table {
+        font-size: 0.8rem;
+        margin-bottom: 3rem;
+      }
+      
+      .prenotazioni-table th,
+      .prenotazioni-table td {
+        padding: 0.4rem 0.2rem;
+        font-size: 0.75rem;
+      }
+      
+      /* Su schermi molto piccoli, nascondi anche la colonna note */
+      .prenotazioni-table th:nth-child(3),
+      .prenotazioni-table td:nth-child(3) {
+        display: none;
+      }
+      
+      .badge {
+        font-size: 0.8em;
+        padding: 0.25em 0.6em;
+      }
+      
+      /* Ancora più spazio per mobile piccoli */
+      body {
+        padding-bottom: 4rem !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <%- include('sidebar') %>
+  <div class="main-content">
+    <h1>Prenotazioni Tavoli</h1>
+    <form class="prenotazione-form" method="POST" action="/pr/prenotazioni">
+      <label>Data</label>
+      <input type="date" name="data" required>
+      <label>Numero persone</label>
+      <input type="number" name="persone" min="1" required>
+      <label>Spesa prevista (€)</label>
+      <input type="number" name="spesa" min="0" step="0.01" required>
+      <label>Omaggi</label>
+      <input type="text" name="omaggi" placeholder="Es: 2 bottiglie, 1 ingresso VIP">
+      <label>Nome tavolo</label>
+      <input type="text" name="nome_tavolo" required>
+      <label>Note tavolo</label>
+      <textarea name="note" rows="2" placeholder="Note aggiuntive"></textarea>
+      <button type="submit">Invia richiesta</button>
+    </form>
+    <div class="pianta-tavoli" style="text-align:center;margin:2rem 0 2rem 0;">
+      <img src="/img/pianta.png" alt="Pianta tavoli" style="width: 80%; height: auto;" />
+    </div>
+    <h2 style="margin-top:2.5rem;">Le tue prenotazioni</h2>
+    <table class="prenotazioni-table">
+      <tr><th>Data</th><th>Persone</th><th>Spesa</th><th>Omaggi</th><th>Nome Tavolo</th><th>Note</th><th>Stato</th></tr>
+      <% prenotazioni.forEach(p => { %>
+        <tr>
+          <td><%= p.data %></td>
+          <td><%= p.numero_persone %></td>
+          <td>€ <%= p.spesa_prevista %></td>
+          <td><%= p.omaggi %></td>
+          <td><%= p.nome_tavolo %></td>
+          <td><%= p.note_tavolo %></td>
+          <td>
+            <% if(p.stato === 'in attesa'){ %>
+              <span class="badge attesa">In attesa</span>
+            <% } else if(p.stato === 'approvata'){ %>
+              <span class="badge approvata">Approvata</span>
+            <% } else { %>
+              <span class="badge rifiutata">Rifiutata</span>
+            <% } %>
+          </td>
+        </tr>
+      <% }) %>
+    </table>
+  </div>
+</body>
+</html>
