@@ -22,6 +22,367 @@ function isAdmin(req, res, next) {
   return res.redirect('/login');
 }
 
+// Route Esportazione Excel Overview
+router.get('/overview/export-excel', isAdmin, async (req, res) => {
+  const ExcelJS = require('exceljs');
+  
+  try {
+    // Recupera tutti gli admin
+    const admins = await new Promise((resolve, reject) => {
+      db.all('SELECT id, nickname, nome, cognome FROM admin', (err, rows) => {
+        if (err) reject(err);
+        else resolve(decryptUserArray(rows));
+      });
+    });
+
+    // Array per raccogliere i dati di ogni admin
+    const adminBreakdown = [];
+    let totalCostoTavoli = 0;
+    let totalGuadagnoComplessivo = 0;
+    let totalPR = 0;
+
+    // Funzione per processare ogni admin
+    const processAdmin = (admin) => {
+      return new Promise((resolve) => {
+        const hierarchyQuery = `
+          WITH RECURSIVE gerarchia AS (
+            SELECT id, fk_padre FROM pr WHERE fk_padre = ?
+            UNION ALL
+            SELECT pr.id, pr.fk_padre FROM pr
+            INNER JOIN gerarchia ON pr.fk_padre = gerarchia.id
+          )
+          SELECT DISTINCT id FROM gerarchia
+        `;
+
+        db.all(hierarchyQuery, [admin.id], (err, prHierarchy) => {
+          if (err) return resolve(null);
+
+          const prIds = prHierarchy.map(pr => pr.id);
+          const numPR = prIds.length;
+
+          if (prIds.length === 0) {
+            return resolve({
+              nickname: admin.nickname,
+              nome: admin.nome,
+              cognome: admin.cognome,
+              prCount: 0,
+              costoTavoli: 0,
+              guadagno: 0,
+              percentuale: 0
+            });
+          }
+
+          const placeholders = prIds.map(() => '?').join(',');
+          const costoQuery = `
+            SELECT COALESCE(SUM(spesa_prevista), 0) as totalCosto
+            FROM storico_tavoli
+            WHERE pr_id IN (${placeholders})
+          `;
+
+          db.get(costoQuery, prIds, (err, costoResult) => {
+            if (err) return resolve(null);
+
+            const costoTavoli = costoResult.totalCosto || 0;
+            const guadagno = costoTavoli * 0.05;
+
+            resolve({
+              nickname: admin.nickname,
+              nome: admin.nome,
+              cognome: admin.cognome,
+              prCount: numPR,
+              costoTavoli: costoTavoli,
+              guadagno: guadagno,
+              percentuale: 0
+            });
+          });
+        });
+      });
+    };
+
+    // Processa tutti gli admin in parallelo
+    const results = await Promise.all(admins.map(processAdmin));
+    const validResults = results.filter(r => r !== null);
+    
+    validResults.forEach(admin => {
+      totalCostoTavoli += admin.costoTavoli;
+      totalGuadagnoComplessivo += admin.guadagno;
+      totalPR += admin.prCount;
+    });
+
+    validResults.forEach(admin => {
+      admin.percentuale = totalGuadagnoComplessivo > 0 
+        ? (admin.guadagno / totalGuadagnoComplessivo) * 100 
+        : 0;
+      adminBreakdown.push(admin);
+    });
+
+    adminBreakdown.sort((a, b) => b.guadagno - a.guadagno);
+
+    // Crea il workbook Excel
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'ICONIC Staff Management';
+    workbook.created = new Date();
+    
+    const worksheet = workbook.addWorksheet('Overview Generale', {
+      pageSetup: { paperSize: 9, orientation: 'landscape' }
+    });
+
+    // Stili
+    const headerStyle = {
+      font: { name: 'Arial', size: 14, bold: true, color: { argb: 'FFFFFFFF' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF667EEA' } },
+      alignment: { vertical: 'middle', horizontal: 'center' },
+      border: {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      }
+    };
+
+    const titleStyle = {
+      font: { name: 'Arial', size: 18, bold: true, color: { argb: 'FF667EEA' } },
+      alignment: { vertical: 'middle', horizontal: 'center' }
+    };
+
+    const subtitleStyle = {
+      font: { name: 'Arial', size: 12, italic: true, color: { argb: 'FF666666' } },
+      alignment: { vertical: 'middle', horizontal: 'center' }
+    };
+
+    const statLabelStyle = {
+      font: { name: 'Arial', size: 11, bold: true },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F5F5' } },
+      alignment: { vertical: 'middle', horizontal: 'left' }
+    };
+
+    const statValueStyle = {
+      font: { name: 'Arial', size: 11, bold: true },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAFAFA' } },
+      alignment: { vertical: 'middle', horizontal: 'right' },
+      numFmt: '#,##0.00'
+    };
+
+    // Titolo
+    worksheet.mergeCells('A1:F1');
+    worksheet.getCell('A1').value = '📊 OVERVIEW GENERALE - ICONIC';
+    worksheet.getCell('A1').style = titleStyle;
+    worksheet.getRow(1).height = 30;
+
+    // Sottotitolo
+    worksheet.mergeCells('A2:F2');
+    worksheet.getCell('A2').value = `Rapporto generato il ${new Date().toLocaleDateString('it-IT', { 
+      day: '2-digit', 
+      month: 'long', 
+      year: 'numeric' 
+    })}`;
+    worksheet.getCell('A2').style = subtitleStyle;
+    worksheet.getRow(2).height = 20;
+
+    // Spazio
+    worksheet.getRow(3).height = 10;
+
+    // Statistiche principali
+    let currentRow = 4;
+    
+    // Header statistiche
+    worksheet.mergeCells(`A${currentRow}:F${currentRow}`);
+    worksheet.getCell(`A${currentRow}`).value = '💰 STATISTICHE COMPLESSIVE';
+    worksheet.getCell(`A${currentRow}`).style = {
+      font: { name: 'Arial', size: 13, bold: true, color: { argb: 'FFFFFFFF' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF764BA2' } },
+      alignment: { vertical: 'middle', horizontal: 'center' }
+    };
+    worksheet.getRow(currentRow).height = 25;
+    currentRow++;
+
+    // Statistiche dettagliate
+    const stats = [
+      { label: '💰 Costo Totale Tavoli', value: totalCostoTavoli, format: '€' },
+      { label: '🎁 Guadagno Complessivo (5%)', value: totalGuadagnoComplessivo, format: '€' },
+      { label: '👥 Admin Attivi', value: adminBreakdown.length, format: '' },
+      { label: '🎯 PR Totali', value: totalPR, format: '' },
+      { label: '💵 Valore Medio Tavolo', value: totalPR > 0 ? totalCostoTavoli / totalPR : 0, format: '€' },
+      { label: '📊 Media Guadagno per Admin', value: adminBreakdown.length > 0 ? totalGuadagnoComplessivo / adminBreakdown.length : 0, format: '€' },
+      { label: '📈 Media PR per Admin', value: adminBreakdown.length > 0 ? totalPR / adminBreakdown.length : 0, format: '' }
+    ];
+
+    stats.forEach(stat => {
+      worksheet.getCell(`A${currentRow}`).value = stat.label;
+      worksheet.getCell(`A${currentRow}`).style = statLabelStyle;
+      worksheet.mergeCells(`A${currentRow}:C${currentRow}`);
+      
+      worksheet.getCell(`D${currentRow}`).value = stat.format === '€' ? stat.value : stat.value;
+      worksheet.getCell(`D${currentRow}`).style = statValueStyle;
+      if (stat.format === '€') {
+        worksheet.getCell(`D${currentRow}`).numFmt = '€#,##0.00';
+      } else if (stat.label.includes('Media PR')) {
+        worksheet.getCell(`D${currentRow}`).numFmt = '#,##0.0';
+      }
+      worksheet.mergeCells(`D${currentRow}:F${currentRow}`);
+      worksheet.getRow(currentRow).height = 22;
+      currentRow++;
+    });
+
+    // Spazio
+    currentRow++;
+    worksheet.getRow(currentRow).height = 15;
+    currentRow++;
+
+    // Tabella dettaglio amministratori
+    worksheet.mergeCells(`A${currentRow}:F${currentRow}`);
+    worksheet.getCell(`A${currentRow}`).value = '📋 DETTAGLIO PER AMMINISTRATORE';
+    worksheet.getCell(`A${currentRow}`).style = {
+      font: { name: 'Arial', size: 13, bold: true, color: { argb: 'FFFFFFFF' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF667EEA' } },
+      alignment: { vertical: 'middle', horizontal: 'center' }
+    };
+    worksheet.getRow(currentRow).height = 25;
+    currentRow++;
+
+    // Header tabella
+    const headers = ['Admin', 'PR nella Gerarchia', 'Costo Totale Tavoli', 'Guadagno (5%)', '% sul Totale'];
+    const headerRow = worksheet.getRow(currentRow);
+    
+    headers.forEach((header, index) => {
+      const cell = headerRow.getCell(index + 1);
+      cell.value = header;
+      cell.style = headerStyle;
+    });
+    headerRow.height = 22;
+    currentRow++;
+
+    // Dati amministratori
+    adminBreakdown.forEach((admin, index) => {
+      const row = worksheet.getRow(currentRow);
+      
+      // Colonna A: Admin nickname
+      row.getCell(1).value = admin.nickname;
+      row.getCell(1).style = {
+        font: { name: 'Arial', size: 10, bold: true },
+        alignment: { vertical: 'middle', horizontal: 'left' }
+      };
+      
+      // Colonna B: PR Count
+      row.getCell(2).value = admin.prCount;
+      row.getCell(2).style = {
+        font: { name: 'Arial', size: 10 },
+        alignment: { vertical: 'middle', horizontal: 'center' },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: index % 2 === 0 ? 'FFF9F9F9' : 'FFFFFFFF' } }
+      };
+      
+      // Colonna C: Costo Tavoli
+      row.getCell(3).value = admin.costoTavoli;
+      row.getCell(3).numFmt = '€#,##0.00';
+      row.getCell(3).style = {
+        font: { name: 'Arial', size: 10, color: { argb: 'FF228B22' } },
+        alignment: { vertical: 'middle', horizontal: 'right' },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: index % 2 === 0 ? 'FFF9F9F9' : 'FFFFFFFF' } }
+      };
+      
+      // Colonna D: Guadagno
+      row.getCell(4).value = admin.guadagno;
+      row.getCell(4).numFmt = '€#,##0.00';
+      row.getCell(4).style = {
+        font: { name: 'Arial', size: 10, bold: true, color: { argb: 'FFF5576C' } },
+        alignment: { vertical: 'middle', horizontal: 'right' },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: index % 2 === 0 ? 'FFF9F9F9' : 'FFFFFFFF' } }
+      };
+      
+      // Colonna E: Percentuale
+      row.getCell(5).value = admin.percentuale / 100;
+      row.getCell(5).numFmt = '0.0%';
+      row.getCell(5).style = {
+        font: { name: 'Arial', size: 10 },
+        alignment: { vertical: 'middle', horizontal: 'right' },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: index % 2 === 0 ? 'FFF9F9F9' : 'FFFFFFFF' } }
+      };
+      
+      // Bordi
+      [1, 2, 3, 4, 5].forEach(col => {
+        row.getCell(col).border = {
+          top: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+          left: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+          bottom: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+          right: { style: 'thin', color: { argb: 'FFE0E0E0' } }
+        };
+      });
+      
+      row.height = 20;
+      currentRow++;
+    });
+
+    // Totali
+    const totalRow = worksheet.getRow(currentRow);
+    totalRow.getCell(1).value = 'TOTALE';
+    totalRow.getCell(1).style = {
+      font: { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFFFF' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF764BA2' } },
+      alignment: { vertical: 'middle', horizontal: 'center' }
+    };
+    
+    totalRow.getCell(2).value = totalPR;
+    totalRow.getCell(2).style = {
+      font: { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFFFF' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF764BA2' } },
+      alignment: { vertical: 'middle', horizontal: 'center' }
+    };
+    
+    totalRow.getCell(3).value = totalCostoTavoli;
+    totalRow.getCell(3).numFmt = '€#,##0.00';
+    totalRow.getCell(3).style = {
+      font: { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFFFF' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF764BA2' } },
+      alignment: { vertical: 'middle', horizontal: 'right' }
+    };
+    
+    totalRow.getCell(4).value = totalGuadagnoComplessivo;
+    totalRow.getCell(4).numFmt = '€#,##0.00';
+    totalRow.getCell(4).style = {
+      font: { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFFFF' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF764BA2' } },
+      alignment: { vertical: 'middle', horizontal: 'right' }
+    };
+    
+    totalRow.getCell(5).value = '100%';
+    totalRow.getCell(5).style = {
+      font: { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFFFF' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF764BA2' } },
+      alignment: { vertical: 'middle', horizontal: 'right' }
+    };
+    
+    totalRow.height = 25;
+
+    // Larghezza colonne
+    worksheet.getColumn(1).width = 25;
+    worksheet.getColumn(2).width = 20;
+    worksheet.getColumn(3).width = 25;
+    worksheet.getColumn(4).width = 20;
+    worksheet.getColumn(5).width = 15;
+    worksheet.getColumn(6).width = 15;
+
+    // Footer con data/ora
+    currentRow += 2;
+    worksheet.mergeCells(`A${currentRow}:F${currentRow}`);
+    worksheet.getCell(`A${currentRow}`).value = `Documento generato automaticamente da ICONIC Staff Management il ${new Date().toLocaleString('it-IT')}`;
+    worksheet.getCell(`A${currentRow}`).style = {
+      font: { name: 'Arial', size: 8, italic: true, color: { argb: 'FF999999' } },
+      alignment: { vertical: 'middle', horizontal: 'center' }
+    };
+
+    // Genera il file
+    const buffer = await workbook.xlsx.writeBuffer();
+    
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=ICONIC_Overview_${new Date().toISOString().split('T')[0]}.xlsx`);
+    res.send(buffer);
+
+  } catch (error) {
+    console.error('[EXPORT EXCEL] Errore:', error);
+    res.status(500).send('Errore durante l\'esportazione Excel');
+  }
+});
+
 // Route Overview Generale - Visibile solo admin
 router.get('/overview', isAdmin, async (req, res) => {
   try {
