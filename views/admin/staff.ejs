@@ -577,20 +577,31 @@
     });
 
     // Search and filter functionality
-    function filterTable() {
-      const searchInput = document.getElementById('searchInput').value.toLowerCase();
+    window.filterTable = function() {
+      console.log('[FILTER] Inizio filtraggio staff...');
+      const searchInput = document.getElementById('searchInput').value.toLowerCase().trim();
       const roleFilter = document.getElementById('roleFilter').value;
+      console.log('[FILTER] Search:', searchInput, 'Role:', roleFilter);
+      
       const table = document.getElementById('staffTable');
       const rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
       let visibleCount = 0;
 
       for (let i = 0; i < rows.length; i++) {
-        const nickname = rows[i].cells[1].textContent.toLowerCase();
-        const role = rows[i].cells[2].textContent.toLowerCase();
-        const fullName = rows[i].cells[3].textContent.toLowerCase();
+        // Get data-role attribute for precise role matching
+        const rowRole = rows[i].getAttribute('data-role');
         
-        const matchesSearch = nickname.includes(searchInput) || fullName.includes(searchInput);
-        const matchesRole = roleFilter === '' || role.includes(roleFilter);
+        // Extract clean text from cells (avoiding icons and extra HTML)
+        const nicknameCell = rows[i].querySelector('.nickname-text');
+        const nameCell = rows[i].querySelector('.full-name');
+        
+        const nickname = nicknameCell ? nicknameCell.textContent.toLowerCase().trim() : '';
+        const fullName = nameCell ? nameCell.textContent.toLowerCase().trim() : '';
+        
+        console.log(`[FILTER] Row ${i}: nickname="${nickname}", fullName="${fullName}", role="${rowRole}"`);
+        
+        const matchesSearch = searchInput === '' || nickname.includes(searchInput) || fullName.includes(searchInput);
+        const matchesRole = roleFilter === '' || rowRole === roleFilter;
         
         if (matchesSearch && matchesRole) {
           rows[i].style.display = '';
@@ -601,10 +612,17 @@
         }
       }
 
+      console.log(`[FILTER] Visibili: ${visibleCount} di ${rows.length}`);
+
       // Update visible count
       const visibleRowsElement = document.getElementById('visibleRows');
       if (visibleRowsElement) {
         visibleRowsElement.textContent = visibleCount;
+      }
+      
+      // Also filter mobile cards if on mobile
+      if (window.innerWidth <= 768) {
+        filterMobileCards();
       }
     }
 
@@ -658,7 +676,9 @@
     }
 
     // Delete user function
-    function deleteUser(id, nickname, ruolo) {
+    // Funzione elimina utente esposta globalmente
+    window.deleteUser = function(id, nickname, ruolo) {
+      console.log('[DELETE USER] Richiesta eliminazione per:', id, nickname, ruolo);
       if (confirm(`Sei sicuro di voler eliminare l'utente "${nickname}" (${ruolo})?`)) {
         // Send delete request with proper data in body
         fetch('/admin/staff/delete', {
@@ -669,6 +689,7 @@
           body: `id=${encodeURIComponent(id)}&ruolo=${encodeURIComponent(ruolo)}`
         })
         .then(response => {
+          console.log('[DELETE USER] Response status:', response.status);
           if (response.ok) {
             // Show success message before reload
             showSuccessMessage(`Utente "${nickname}" eliminato con successo!`);
@@ -677,12 +698,13 @@
             }, 1500);
           } else {
             return response.text().then(text => {
+              console.error('[DELETE USER] Errore dal server:', text);
               throw new Error(text || 'Errore durante l\'eliminazione');
             });
           }
         })
         .catch(error => {
-          console.error('Error:', error);
+          console.error('[DELETE USER] Errore catch:', error);
           alert('Errore durante l\'eliminazione dell\'utente: ' + error.message);
         });
       }
@@ -809,18 +831,66 @@
     
     // Funzione closeEditModal già definita sopra
     
-    // Funzione per mostrare/nascondere password
-    function togglePassword(inputId) {
-      const passwordInput = document.getElementById(inputId);
-      const toggleButton = passwordInput.nextElementSibling;
-      const icon = toggleButton.querySelector('i');
+    // Funzione per mostrare/nascondere password (esposta globalmente e migliorata)
+    window.togglePassword = function(inputId) {
+      console.log('[PASSWORD TOGGLE] Toggling password visibility for:', inputId);
+      
+      // Attendi che il DOM sia completamente caricato
+      setTimeout(() => {
+        const passwordInput = document.getElementById(inputId);
+        
+        if (!passwordInput) {
+          console.error('[PASSWORD TOGGLE] Input non trovato:', inputId);
+          return;
+        }
+        
+        console.log('[PASSWORD TOGGLE] Input trovato:', passwordInput);
+        
+        // Trova il wrapper e poi il button all'interno
+        const wrapper = passwordInput.parentElement;
+        console.log('[PASSWORD TOGGLE] Wrapper:', wrapper);
+        
+        const toggleButton = wrapper ? wrapper.querySelector('.password-toggle') : null;
+        
+        if (!toggleButton) {
+          console.error('[PASSWORD TOGGLE] Toggle button non trovato nel wrapper');
+          // Fallback: cerca il button come nextElementSibling
+          const nextBtn = passwordInput.nextElementSibling;
+          console.log('[PASSWORD TOGGLE] Next sibling:', nextBtn);
+          if (nextBtn && nextBtn.classList.contains('password-toggle')) {
+            const icon = nextBtn.querySelector('i');
+            if (icon) {
+              togglePasswordVisibility(passwordInput, icon);
+            }
+          }
+          return;
+        }
+        
+        const icon = toggleButton.querySelector('i');
+        
+        if (!icon) {
+          console.error('[PASSWORD TOGGLE] Icona non trovata');
+          return;
+        }
+        
+        togglePasswordVisibility(passwordInput, icon);
+      }, 50);
+    }
+    
+    // Funzione helper per il toggle
+    function togglePasswordVisibility(passwordInput, icon) {
+      console.log('[PASSWORD TOGGLE] Current type:', passwordInput.type);
       
       if (passwordInput.type === 'password') {
         passwordInput.type = 'text';
-        icon.className = 'fas fa-eye-slash';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+        console.log('[PASSWORD TOGGLE] Password ora visibile');
       } else {
         passwordInput.type = 'password';
-        icon.className = 'fas fa-eye';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+        console.log('[PASSWORD TOGGLE] Password ora nascosta');
       }
     }
     
@@ -905,47 +975,6 @@
       // Rimuovi il parametro dall'URL senza ricaricare la pagina
       const newUrl = window.location.pathname;
       window.history.replaceState({}, document.title, newUrl);
-    }
-
-    // Update mobile filter
-    function filterMobileCards() {
-      const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-      const roleFilter = document.getElementById('roleFilter').value;
-      const cards = document.querySelectorAll('.staff-card');
-      let visibleCount = 0;
-
-      cards.forEach(card => {
-        const searchText = card.getAttribute('data-search').toLowerCase();
-        const roleText = card.getAttribute('data-role');
-        
-        const matchesSearch = searchText.includes(searchTerm);
-        const matchesRole = !roleFilter || roleText === roleFilter;
-        
-        if (matchesSearch && matchesRole) {
-          card.style.display = 'block';
-          visibleCount++;
-        } else {
-          card.style.display = 'none';
-        }
-      });
-
-      return visibleCount;
-    }
-
-    // Enhanced filter function that works for both table and cards
-    const originalFilterTable = window.filterTable;
-    window.filterTable = function() {
-      const isMobile = window.innerWidth <= 768;
-      let visibleCount = 0;
-
-      if (isMobile) {
-        visibleCount = filterMobileCards();
-      } else {
-        return originalFilterTable();
-      }
-
-      // Update counter
-      document.getElementById('visibleRows').textContent = visibleCount;
     }
 
     console.log('🚀 ICONIC Staff Management caricato con supporto mobile!');

@@ -186,7 +186,10 @@
 
 .organigramma-container {
   width: 100%;
-  height: 700px;
+  /* Usa viewport height - spazio per header, stats, controlli e margini */
+  height: calc(100vh - 420px);
+  min-height: 500px;
+  max-height: 900px;
   border: 3px solid #e3eaf7;
   border-radius: 16px;
   overflow: hidden;
@@ -315,7 +318,10 @@
   }
   
   .organigramma-container {
-    height: 500px;
+    /* Su mobile usa altezza fissa più contenuta */
+    height: calc(100vh - 500px);
+    min-height: 400px;
+    max-height: 600px;
   }
 
   .organigramma-info,

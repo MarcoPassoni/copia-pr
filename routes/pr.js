@@ -382,22 +382,41 @@ async function getPersonalDetailedStats(prId) {
           db.all(andamentoQuery, [prId], (err, andamento) => {
             if (err) return reject(err);
             
-            // Query per ultimi tavoli (5 più recenti)
+            // Query per ultimi tavoli (5 più recenti) - include sia approvati che in attesa/rifiutati
             const ultimiTavoliQuery = `
               SELECT 
                 data,
                 spesa_prevista as totale,
                 numero_persone,
                 (spesa_prevista * p.percentuale_provvigione / 100) as provvigione_singola,
-                nome_tavolo
+                nome_tavolo,
+                'Approvato' as stato
               FROM storico_tavoli st
               JOIN pr p ON st.pr_id = p.id
               WHERE st.pr_id = ?
+              
+              UNION ALL
+              
+              SELECT 
+                data,
+                spesa_prevista as totale,
+                numero_persone,
+                (spesa_prevista * p.percentuale_provvigione / 100) as provvigione_singola,
+                nome_tavolo,
+                CASE 
+                  WHEN stato = 'approvata' THEN 'Approvato'
+                  WHEN stato = 'rifiutata' THEN 'Rifiutato'
+                  ELSE 'In attesa'
+                END as stato
+              FROM richieste_tavoli rt
+              JOIN pr p ON rt.pr_id = p.id
+              WHERE rt.pr_id = ?
+              
               ORDER BY data DESC
               LIMIT 5
             `;
             
-            db.all(ultimiTavoliQuery, [prId], (err, ultimiTavoli) => {
+            db.all(ultimiTavoliQuery, [prId, prId], (err, ultimiTavoli) => {
               if (err) return reject(err);
               
               // Query per storico pagamenti ricevuti
@@ -423,9 +442,10 @@ async function getPersonalDetailedStats(prId) {
                 resolve({
                   prenotazioni_totali: personalStats.prenotazioni_totali || 0,
                   fatturato_totale: personalStats.fatturato_totale || 0,
-                  provvigioni_maturate: provvigioniInfo.provvigioni_maturate,
-                  provvigioni_pagate: provvigioniInfo.pagamenti_ricevuti,
-                  provvigioni_da_ricevere: provvigioniInfo.provvigioni_da_ricevere,
+                  provvigioni_maturate: provvigioniInfo.provvigioni_maturate || 0,
+                  provvigioni_guadagnate: provvigioniInfo.provvigioni_maturate || 0, // Alias per compatibilità vista
+                  provvigioni_pagate: provvigioniInfo.pagamenti_ricevuti || 0,
+                  provvigioni_da_ricevere: provvigioniInfo.provvigioni_da_ricevere || 0,
                   persone_portate: peopleData.persone_portate || 0,
                   pagante_info: provvigioniInfo.pagante,
                   ha_figli_propri: provvigioniInfo.ha_figli_propri,

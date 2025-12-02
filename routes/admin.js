@@ -511,42 +511,74 @@ router.get('/overview', isAdmin, async (req, res) => {
   }
 });
 
-// Visualizza tutti i tavoli approvati (storico_tavoli)
-router.get('/tavoli', isAdmin, (req, res) => {
-  const filtroData = req.query.data;
-  let sql = `SELECT s.*, pr.nickname as pr_nickname, pr.nome as pr_nome, pr.cognome as pr_cognome
-               FROM storico_tavoli s
-               LEFT JOIN pr ON s.pr_id = pr.id`;
-  const params = [];
-  if (filtroData) {
-    sql += ' WHERE s.data = ?';
-    params.push(filtroData);
-  }
-  sql += ' ORDER BY s.data DESC';
-  db.all(sql, params, (err, tavoli) => {
-    if (err) return res.send('Errore nel recupero tavoli: ' + err.message);
+// Visualizza tutti i tavoli approvati (storico_tavoli) - CON FILTRO GERARCHIA ADMIN
+router.get('/tavoli', isAdmin, addAdminFilter, async (req, res) => {
+  try {
+    const filtroData = req.query.data;
+    const adminId = req.session.user.id;
+    const adminFilter = req.adminFilter;
     
-    // Decritta i dati dei PR per la visualizzazione
-    const tavoliDecrypted = tavoli.map(tavolo => {
-      if (tavolo.pr_nome && tavolo.pr_cognome) {
-        const decryptedPr = decryptUserData({
-          nome: tavolo.pr_nome,
-          cognome: tavolo.pr_cognome
-        });
-        tavolo.pr_nome = decryptedPr.nome;
-        tavolo.pr_cognome = decryptedPr.cognome;
+    // Se l'admin non ha PR nella sua gerarchia, mostra lista vuota
+    if (adminFilter.prIds.length === 0) {
+      console.log(`[TAVOLI] Admin ${req.session.user.nickname} non ha PR nella sua gerarchia`);
+      return res.render('admin/tavoli', { 
+        layout: 'admin/layout-new',
+        title: 'ICONIC - Tavoli Approvati',
+        currentPage: 'tavoli',
+        tavoli: [], 
+        filtroData,
+        adminFilter
+      });
+    }
+    
+    // Query filtrata per PR nella gerarchia dell'admin
+    let sql = `SELECT s.*, pr.nickname as pr_nickname, pr.nome as pr_nome, pr.cognome as pr_cognome
+                 FROM storico_tavoli s
+                 LEFT JOIN pr ON s.pr_id = pr.id
+                 WHERE s.pr_id IN (${adminFilter.prIds.join(',')})`;
+    
+    const params = [];
+    if (filtroData) {
+      sql += ' AND s.data = ?';
+      params.push(filtroData);
+    }
+    sql += ' ORDER BY s.data DESC';
+    
+    db.all(sql, params, (err, tavoli) => {
+      if (err) {
+        console.error('[TAVOLI] Errore query tavoli:', err);
+        return res.send('Errore nel recupero tavoli: ' + err.message);
       }
-      return tavolo;
+      
+      console.log(`[TAVOLI] Admin ${req.session.user.nickname} può vedere ${tavoli.length} tavoli approvati della sua gerarchia`);
+      
+      // Decritta i dati dei PR per la visualizzazione
+      const tavoliDecrypted = tavoli.map(tavolo => {
+        if (tavolo.pr_nome && tavolo.pr_cognome) {
+          const decryptedPr = decryptUserData({
+            nome: tavolo.pr_nome,
+            cognome: tavolo.pr_cognome
+          });
+          tavolo.pr_nome = decryptedPr.nome;
+          tavolo.pr_cognome = decryptedPr.cognome;
+        }
+        return tavolo;
+      });
+      
+      res.render('admin/tavoli', { 
+        layout: 'admin/layout-new',
+        title: 'ICONIC - Tavoli Approvati',
+        currentPage: 'tavoli',
+        tavoli: tavoliDecrypted, 
+        filtroData,
+        adminFilter
+      });
     });
     
-    res.render('admin/tavoli', { 
-      layout: 'admin/layout-new',
-      title: 'ICONIC - Tavoli Approvati',
-      currentPage: 'tavoli',
-      tavoli: tavoliDecrypted, 
-      filtroData 
-    });
-  });
+  } catch (error) {
+    console.error('[TAVOLI] Errore filtro admin:', error);
+    res.status(500).send('Errore interno del server');
+  }
 });
 
 // Gestione Staff con filtri per admin
@@ -1150,6 +1182,9 @@ router.post('/approvazioni/modifica', isAdmin, (req, res) => {
 router.get('/report', isAdmin, async (req, res) => {
   // [PRODUCTION] Removed console.log('[REPORT] Caricamento report gerarchico con calcoli ricorsivi...')
   
+  // Import del sistema di crittografia per decodificare i nomi
+  const { decryptUserData } = require('../utils/crypto');
+  
   const adminId = req.session.user.id;
   const meseCorrente = new Date().toISOString().substring(0, 7); // YYYY-MM
   
@@ -1204,7 +1239,28 @@ router.get('/report', isAdmin, async (req, res) => {
     const allPrData = await new Promise((resolve, reject) => {
       db.all(allPrQuery, [meseCorrente, meseCorrente, meseCorrente, adminId], (err, rows) => {
         if (err) reject(err);
-        else resolve(rows);
+        else {
+          // Decrittografa i dati sensibili (nome, cognome, nickname, padre_nickname)
+          const decryptedRows = rows.map(row => {
+            try {
+              return {
+                ...row,
+                nickname: decryptUserData(row.nickname),
+                nome: decryptUserData(row.nome),
+                cognome: decryptUserData(row.cognome),
+                // Decrittografa anche il padre_nickname se non è 'Nessuno'
+                padre_nickname: row.padre_nickname && row.padre_nickname !== 'Nessuno' 
+                  ? decryptUserData(row.padre_nickname) 
+                  : row.padre_nickname
+              };
+            } catch (decryptError) {
+              console.error('[REPORT] Errore decrittazione per PR ID:', row.id, decryptError.message);
+              // Ritorna i dati originali se la decrittazione fallisce
+              return row;
+            }
+          });
+          resolve(decryptedRows);
+        }
       });
     });
     
@@ -2215,9 +2271,9 @@ router.get('/richieste-pr', isAdmin, addAdminFilter, async (req, res) => {
         padre_proposto.nome as padre_nome,
         padre_proposto.cognome as padre_cognome
       FROM richieste_creazione_pr r
-      LEFT JOIN pr richiedente ON r.pr_richiedente_id = richiedente.id
-      LEFT JOIN pr padre_proposto ON r.padre_proposto_id = padre_proposto.id
-      WHERE r.pr_richiedente_id IN (${filter.prIds.join(',')})
+      LEFT JOIN pr richiedente ON r.fk_richiedente = richiedente.id
+      LEFT JOIN pr padre_proposto ON r.fk_padre_proposto = padre_proposto.id
+      WHERE r.fk_richiedente IN (${filter.prIds.join(',')})
       ORDER BY r.data_richiesta DESC
     `;
   
@@ -2279,7 +2335,7 @@ router.get('/richieste-pr', isAdmin, addAdminFilter, async (req, res) => {
             COUNT(CASE WHEN stato = 'approvata' THEN 1 END) as approvate,
             COUNT(CASE WHEN stato = 'rifiutata' THEN 1 END) as rifiutate
           FROM richieste_creazione_pr
-          WHERE pr_richiedente_id IN (${filter.prIds.join(',')})
+          WHERE fk_richiedente IN (${filter.prIds.join(',')})
         `;
         
         db.get(statsQuery, [], (err3, statsRaw) => {

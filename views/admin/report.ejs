@@ -1308,7 +1308,16 @@ body {
 const paymentModal = document.getElementById('paymentModal');
 const closeBtn = document.querySelector('.close');
 
-function openPaymentModal(prId, nickname, amount) {
+// Make functions globally accessible
+window.openPaymentModal = function(prId, nickname, amount) {
+  console.log('[PAYMENT MODAL] Apertura modal per PR:', prId, nickname, amount);
+  
+  if (!paymentModal) {
+    console.error('[PAYMENT MODAL] Modal non trovato!');
+    alert('Errore: modal pagamento non trovato');
+    return;
+  }
+  
   document.getElementById('payment-pr-id').value = prId;
   document.getElementById('payment-pr-name').textContent = nickname;
   document.getElementById('payment-amount').textContent = `€${amount}`;
@@ -1316,18 +1325,23 @@ function openPaymentModal(prId, nickname, amount) {
   
   paymentModal.style.display = 'block';
   document.body.style.overflow = 'hidden';
+  
+  console.log('[PAYMENT MODAL] Modal aperto con successo');
 }
 
-function closePaymentModal() {
+window.closePaymentModal = function() {
+  console.log('[PAYMENT MODAL] Chiusura modal');
   paymentModal.style.display = 'none';
   document.body.style.overflow = '';
   document.getElementById('payment-notes').value = '';
 }
 
-function confirmPayment() {
+window.confirmPayment = function() {
   const prId = document.getElementById('payment-pr-id').value;
   const amount = document.getElementById('payment-amount-value').value;
   const notes = document.getElementById('payment-notes').value;
+  
+  console.log('[PAYMENT] Invio pagamento:', { prId, amount, notes });
   
   if (!prId || !amount) {
     alert('Dati mancanti per il pagamento');
@@ -1348,6 +1362,7 @@ function confirmPayment() {
   })
   .then(response => response.json())
   .then(data => {
+    console.log('[PAYMENT] Risposta server:', data);
     if (data.success) {
       alert('Pagamento registrato con successo!');
       location.reload();
@@ -1356,7 +1371,7 @@ function confirmPayment() {
     }
   })
   .catch(error => {
-    console.error('Error:', error);
+    console.error('[PAYMENT] Errore:', error);
     alert('Errore durante la comunicazione con il server');
   });
   

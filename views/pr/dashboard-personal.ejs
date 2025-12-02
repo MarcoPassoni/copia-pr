@@ -305,8 +305,8 @@
                                     <td><%= tavolo.numero_persone %></td>
                                     <td class="currency">€<%= parseFloat(tavolo.totale).toFixed(2) %></td>
                                     <td class="currency">€<%= parseFloat(tavolo.provvigione_singola).toFixed(2) %></td>
-                                    <td class="status-<%= tavolo.stato === 'approvato' ? 'approved' : tavolo.stato === 'rifiutato' ? 'rejected' : 'pending' %>">
-                                        <%= tavolo.stato === 'approvato' ? 'Approvato' : tavolo.stato === 'rifiutato' ? 'Rifiutato' : 'In attesa' %>
+                                    <td class="status-<%= tavolo.stato && tavolo.stato.toLowerCase() === 'approvato' ? 'approved' : tavolo.stato && tavolo.stato.toLowerCase() === 'rifiutato' ? 'rejected' : 'pending' %>">
+                                        <%= tavolo.stato || 'In attesa' %>
                                     </td>
                                 </tr>
                                 <% }); %>

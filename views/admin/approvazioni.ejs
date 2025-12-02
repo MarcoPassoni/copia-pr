@@ -1429,8 +1429,19 @@
     const modifyModal = document.getElementById('modifyModal');
     const closeBtn = document.querySelector('.close');
     
-    function openModifyModal(richiestaId) {
-      const button = document.querySelector(`[data-id="${richiestaId}"]`);
+    // Make sure function is globally accessible
+    window.openModifyModal = function(richiestaId) {
+      console.log('[MODAL] Apertura modal per richiesta ID:', richiestaId);
+      
+      const button = document.querySelector(`button[data-id="${richiestaId}"]`);
+      
+      if (!button) {
+        console.error('[MODAL] Bottone non trovato per ID:', richiestaId);
+        alert('Errore: dati della richiesta non trovati');
+        return;
+      }
+      
+      console.log('[MODAL] Dati bottone:', button.dataset);
       
       // Popola il form con i dati attuali
       document.getElementById('modify-id').value = richiestaId;
@@ -1439,16 +1450,19 @@
       document.getElementById('modify-persone').value = button.dataset.numero_persone;
       document.getElementById('modify-spesa').value = button.dataset.spesa_prevista;
       document.getElementById('modify-nome-tavolo').value = button.dataset.nome_tavolo;
-      document.getElementById('modify-omaggi').value = button.dataset.omaggi;
-      document.getElementById('modify-note-tavolo').value = button.dataset.note_tavolo;
-      document.getElementById('modify-note-modifiche').value = button.dataset.note_modifiche;
+      document.getElementById('modify-omaggi').value = button.dataset.omaggi || '';
+      document.getElementById('modify-note-tavolo').value = button.dataset.note_tavolo || '';
+      document.getElementById('modify-note-modifiche').value = '';
       
       // Mostra il modal
       modifyModal.style.display = 'block';
       document.body.style.overflow = 'hidden';
+      
+      console.log('[MODAL] Modal aperto con successo');
     }
     
-    function closeModifyModal() {
+    window.closeModifyModal = function() {
+      console.log('[MODAL] Chiusura modal');
       modifyModal.style.display = 'none';
       document.body.style.overflow = '';
     }
