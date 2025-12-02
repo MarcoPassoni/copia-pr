@@ -1,5 +1,5 @@
 /**
- * Script per pulire tutti i dati dal database ICONIC
+ * Script per pulire tutti i dati dal database Aura
  * Mantiene la struttura delle tabelle ma rimuove tutti i record
  */
 
@@ -95,7 +95,7 @@ function clearAdminRelatedData() {
             });
 
             // 2. Pulisce andamento_staff_mensile degli admin
-            db.run(`DELETE FROM andamento_staff_mensile WHERE user_id IN (${adminIds.join(',')}) AND user_type = 'admin'`, function(err) {
+            db.run(`DELETE FROM andamento_staff_mensile WHERE pr_id IN (${adminIds.join(',')})`, function(err) {
                 if (err) {
                     console.error('❌ Errore pulizia andamento_staff_mensile admin:', err.message);
                     reject(err);
@@ -105,7 +105,7 @@ function clearAdminRelatedData() {
             });
 
             // 3. Pulisce pagamenti_provvigioni degli admin
-            db.run(`DELETE FROM pagamenti_provvigioni WHERE pr_id IN (${adminIds.join(',')})`, function(err) {
+            db.run(`DELETE FROM pagamenti_provvigioni WHERE pr_destinatario_id IN (${adminIds.join(',')}) OR pr_pagante_id IN (${adminIds.join(',')})`, function(err) {
                 if (err) {
                     console.error('❌ Errore pulizia pagamenti_provvigioni admin:', err.message);
                     reject(err);
@@ -180,7 +180,7 @@ function resetAutoIncrement() {
  * Funzione principale per pulire il database (preservando gli admin)
  */
 async function clearDatabase() {
-    console.log('🧹 Inizio pulizia database ICONIC (preservando admin)...\n');
+    console.log('🧹 Inizio pulizia database Aura (preservando admin)...\n');
     
     try {
         let totalRecordsDeleted = 0;

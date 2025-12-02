@@ -2246,7 +2246,7 @@ router.get('/richieste-pr', isAdmin, addAdminFilter, async (req, res) => {
       // [PRODUCTION] Removed console.log(`[RICHIESTE PR] Admin ${req.session.user.nickname} non ha PR nella sua gerarchia`)
       return res.render('admin/richieste-pr', {
         layout: 'admin/layout-new',
-        title: 'ICONIC - Richieste PR',
+        title: 'Aura - Richieste PR',
         currentPage: 'richieste-pr',
         richieste: [],
         tuttiPR: [],
@@ -2353,7 +2353,7 @@ router.get('/richieste-pr', isAdmin, addAdminFilter, async (req, res) => {
           
           res.render('admin/richieste-pr', { 
             layout: 'admin/layout-new',
-            title: 'ICONIC - Richieste PR',
+            title: 'Aura - Richieste PR',
             currentPage: 'richieste-pr',
             richieste: richiesteDecrypted,
             tuttiPR: tuttiPR,
@@ -2755,7 +2755,7 @@ router.get('/guadagni', isAdmin, addAdminFilter, async (req, res) => {
       // [PRODUCTION] Removed console.log(`[ADMIN GUADAGNI] Admin ${req.session.user.nickname} non ha PR nella sua gerarchia`)
       return res.render('admin/guadagni', {
         layout: 'admin/layout-new',
-        title: 'ICONIC - Guadagni Admin',
+        title: 'Aura - Guadagni Admin',
         currentPage: 'guadagni',
         prGuadagni: [],
         totali: {
@@ -2765,6 +2765,12 @@ router.get('/guadagni', isAdmin, addAdminFilter, async (req, res) => {
           guadagnoNettoTotale: 0,
           numeroPR: 0,
           numeroEventiTotali: 0
+        },
+        adminInfo: {
+          id: req.session.user.id,
+          nickname: req.session.user.nickname,
+          nome: req.session.user.nome,
+          cognome: req.session.user.cognome
         },
         adminFilter: filter
       });
@@ -2862,7 +2868,7 @@ router.get('/guadagni', isAdmin, addAdminFilter, async (req, res) => {
       
       res.render('admin/guadagni', {
         layout: 'admin/layout-new',
-        title: 'ICONIC - Guadagni Admin',
+        title: 'Aura - Guadagni Admin',
         currentPage: 'guadagni',
         prGuadagni,
         totali,

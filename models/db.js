@@ -274,22 +274,24 @@ const initDB = () => {
   });
 };
 
-// Funzione di utilità per inserire un admin di default (admin/admin)
+// Funzione di utilità per inserire un admin di default (Admin/AdminPassword123!)
 function creaAdminDefault() {
   const bcrypt = require('bcryptjs');
-  db.get('SELECT * FROM admin WHERE nickname = ?', ['admin'], (err, row) => {
+  db.get('SELECT * FROM admin WHERE nickname = ?', ['Admin'], (err, row) => {
     if (!row) {
-      bcrypt.hash('admin', 10, (err, hash) => {
+      bcrypt.hash('AdminPassword123!', 10, (err, hash) => {
         // Cripta i dati personali dell'admin di default
         const adminData = encryptUserData({
-          nome: 'Admin',
-          cognome: 'Admin',
+          nome: 'Aura',
+          cognome: 'Administrator',
           numero_telefono: '0000000000'
         });
         
         db.run('INSERT INTO admin (nome, cognome, numero_telefono, nickname, password) VALUES (?, ?, ?, ?, ?)', 
-          [adminData.nome, adminData.cognome, adminData.numero_telefono, 'admin', hash], (err2) => {
-          // Admin creato senza messaggi console
+          [adminData.nome, adminData.cognome, adminData.numero_telefono, 'Admin', hash], (err2) => {
+          if (!err2) {
+            console.log('👑 Admin di default creato: Admin / AdminPassword123!');
+          }
         });
       });
     }

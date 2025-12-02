@@ -142,7 +142,7 @@ app.use((err, req, res, next) => {
 // Avvio server
 const PORT = process.env.PORT || 3000;
 const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 ICONIC Server running on port ${PORT}`);
+  console.log(`🚀 Aura Server running on port ${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`📁 Database: ${process.env.RAILWAY_VOLUME_MOUNT_PATH ? 'Volume persistente' : 'Locale'}`);
 });

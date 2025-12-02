@@ -4,7 +4,7 @@
     <i class="fas fa-clipboard-list"></i>
     Report Dettagliato per Utente
   </h1>
-  <p>Gestione pagamenti e gerarchia del team ICONIC per <%= meseCorrente %></p>
+  <p>Gestione pagamenti e gerarchia del team Aura per <%= meseCorrente %></p>
 </div>
 
 <!-- Navigation buttons -->
@@ -566,73 +566,82 @@ body {
 
 .stat-card {
   background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  border: 1px solid #e2e8f0;
+  border: 2px solid rgba(250, 215, 96, 0.2);
   border-radius: 12px;
   overflow: hidden;
   transition: all 0.3s ease;
   position: relative;
+  box-shadow: 0 2px 8px rgba(247, 108, 28, 0.08);
 }
 
 .stat-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 6px 20px rgba(247, 108, 28, 0.2);
 }
 
-.stat-card.direct { border-left: 4px solid #3b82f6; }
-.stat-card.total { border-left: 4px solid #8b5cf6; }
-.stat-card.people { border-left: 4px solid #10b981; }
-.stat-card.tables { border-left: 4px solid #f59e0b; }
-.stat-card.commissions { border-left: 4px solid #ef4444; }
-.stat-card.profit { border-left: 4px solid #059669; }
+.stat-card.direct { border-left: 4px solid var(--ecstasy); }
+.stat-card.total { border-left: 4px solid var(--crusta); }
+.stat-card.people { border-left: 4px solid var(--yellow-orange); }
+.stat-card.tables { border-left: 4px solid var(--coral); }
+.stat-card.commissions { border-left: 4px solid var(--casablanca); }
+.stat-card.profit { border-left: 4px solid var(--saffron-mango); }
 
 .stat-card-content {
   display: flex;
   align-items: center;
-  padding: 1rem;
-  gap: 0.75rem;
+  padding: 0.75rem;
+  gap: 0.5rem;
 }
 
 .stat-card-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 50px;
-  height: 50px;
-  border-radius: 10px;
-  font-size: 1.25rem;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  font-size: 1rem;
   color: #ffffff;
   flex-shrink: 0;
 }
 
-.stat-card.direct .stat-card-icon { background: linear-gradient(135deg, #3b82f6, #2563eb); }
-.stat-card.total .stat-card-icon { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
-.stat-card.people .stat-card-icon { background: linear-gradient(135deg, #10b981, #059669); }
-.stat-card.tables .stat-card-icon { background: linear-gradient(135deg, #f59e0b, #d97706); }
-.stat-card.commissions .stat-card-icon { background: linear-gradient(135deg, #ef4444, #dc2626); }
-.stat-card.profit .stat-card-icon { background: linear-gradient(135deg, #059669, #047857); }
+.stat-card.direct .stat-card-icon { background: linear-gradient(135deg, var(--ecstasy), var(--crusta)); box-shadow: 0 2px 8px rgba(247, 108, 28, 0.3); }
+.stat-card.total .stat-card-icon { background: linear-gradient(135deg, var(--crusta), var(--coral)); box-shadow: 0 2px 8px rgba(247, 135, 46, 0.3); }
+.stat-card.people .stat-card-icon { background: linear-gradient(135deg, var(--yellow-orange), var(--casablanca)); box-shadow: 0 2px 8px rgba(249, 170, 67, 0.3); }
+.stat-card.tables .stat-card-icon { background: linear-gradient(135deg, var(--coral), var(--sea-buckthorn)); box-shadow: 0 2px 8px rgba(255, 143, 73, 0.3); }
+.stat-card.commissions .stat-card-icon { background: linear-gradient(135deg, var(--casablanca), var(--saffron-mango)); box-shadow: 0 2px 8px rgba(249, 186, 77, 0.3); }
+.stat-card.profit .stat-card-icon { background: linear-gradient(135deg, var(--saffron-mango), var(--energy-yellow)); box-shadow: 0 2px 8px rgba(250, 201, 87, 0.3); }
 
 .stat-card-data {
   flex: 1;
   min-width: 0;
+  overflow: visible;
 }
 
 .stat-card-data h3 {
-  margin: 0 0 0.25rem 0;
-  font-size: 0.9rem;
+  margin: 0 0 0.125rem 0;
+  font-size: 0.75rem;
   font-weight: 600;
   color: #374151;
+  white-space: nowrap;
+  overflow: visible;
 }
 
 .stat-number {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: #111827;
   margin-bottom: 0.125rem;
+  white-space: nowrap;
 }
 
 .stat-label {
-  font-size: 0.8rem;
+  font-size: 0.65rem;
   color: #6b7280;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Admin card responsive */
@@ -1164,6 +1173,7 @@ body {
   
   .stats-grid {
     grid-template-columns: repeat(3, 1fr);
+    gap: 1.25rem;
   }
   
   .modal-content {
@@ -1393,5 +1403,5 @@ document.addEventListener('keydown', function(event) {
   }
 });
 
-console.log('🚀 ICONIC Report Gerarchico caricato!');
+console.log('🚀 Aura Report Gerarchico caricato!');
 </script>
