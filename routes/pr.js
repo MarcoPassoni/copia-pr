@@ -665,7 +665,7 @@ router.get('/organigramma', ensurePR, async (req, res) => {
       
       UNION ALL
       
-      -- Livelli ricorsivi: PR sotto i PR già trovati
+      -- Livelli ricorsivi: PR sotto i PR già trovati (limite profondità per evitare query troppo pesanti)
       SELECT 
         pr.id,
         pr.nickname,
@@ -691,6 +691,7 @@ router.get('/organigramma', ensurePR, async (req, res) => {
       FROM pr pr
       INNER JOIN sotto_staff_tree sst ON pr.fk_padre = sst.id
       WHERE pr.attivo = 1
+        AND sst.livello < 6 -- evita ricorsione infinita su gerarchie molto profonde
     )
     SELECT 
       sst.*,
@@ -728,8 +729,10 @@ router.get('/organigramma', ensurePR, async (req, res) => {
     LEFT JOIN storico_tavoli st ON pr.id = st.pr_id
   `;
   
-  // Esegui le query
+  // Esegui le query (misura durata per debug)
+  console.time('[ORGANIGRAMMA PR] sottoStaffQuery duration');
   db.all(sottoStaffQuery, [userId], (err, sottoStaffData) => {
+    console.timeEnd('[ORGANIGRAMMA PR] sottoStaffQuery duration');
     if (err) {
       console.error('[ORGANIGRAMMA PR] Errore query sotto-staff:', err.message);
       return res.status(500).send('Errore nel caricamento organigramma: ' + err.message);

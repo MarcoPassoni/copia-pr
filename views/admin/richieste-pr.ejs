@@ -446,7 +446,7 @@
                     </td>
                     <td>
                         <% if (r.stato === 'in attesa') { %>
-                            <button class="azioni-btn btn-modifica" onclick="openEditModal(<%= r.id %>)" 
+                            <button class="azioni-btn btn-modifica" 
                                     data-id="<%= r.id %>"
                                     data-nickname="<%= r.nickname %>"
                                     data-nome="<%= r.nome %>"
@@ -539,7 +539,7 @@
                 
                 <div class="modal-buttons">
                     <button type="submit" class="save-btn">✅ Approva e Crea PR</button>
-                    <button type="button" onclick="closeEditModal()" class="cancel-btn">Annulla</button>
+                    <button type="button" class="cancel-btn">Annulla</button>
                 </div>
             </form>
         </div>
@@ -692,4 +692,37 @@
                 }, 5000);
             }
         });
+
+        // Attach programmatic listeners to 'Modifica & Approva' buttons (CSP-compliant)
+        try {
+            const modButtons = document.querySelectorAll('.btn-modifica');
+            modButtons.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const id = btn.getAttribute('data-id');
+                    if (id) {
+                        openEditModal(id);
+                    } else {
+                        console.warn('[RICHIESTE] btn-modifica missing data-id', btn);
+                    }
+                });
+            });
+            console.log('[RICHIESTE] Attached listeners to btn-modifica:', modButtons.length);
+        } catch (attachErr) {
+            console.error('[RICHIESTE] Error attaching btn-modifica listeners:', attachErr);
+        }
+
+        // Attach listener to modal cancel button
+        try {
+            const cancelBtn = document.querySelector('.cancel-btn');
+            if (cancelBtn) {
+                cancelBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    closeEditModal();
+                });
+                console.log('[RICHIESTE] cancel-btn listener attached');
+            }
+        } catch (cErr) {
+            console.error('[RICHIESTE] Error attaching cancel-btn listener:', cErr);
+        }
     </script>

@@ -31,18 +31,27 @@ function getPRHierarchy(adminId) {
       const directPRs = allPRs.filter(pr => pr.fk_padre === adminId);
       
       // Funzione ricorsiva per trovare tutti i discendenti
+      // Protezione contro cicli: manteniamo un Set di nodi visitati
+      const visited = new Set();
       function findDescendants(parentId) {
+        if (visited.has(parentId)) return; // già processato
+        visited.add(parentId);
+
         const children = allPRs.filter(pr => pr.fk_padre === parentId);
         children.forEach(child => {
-          allPRIds.add(child.id);
-          findDescendants(child.id); // Ricorsione
+          if (!visited.has(child.id)) {
+            allPRIds.add(child.id);
+            findDescendants(child.id); // Ricorsione sicura
+          }
         });
       }
       
       // Aggiungi i PR diretti e trova tutti i loro discendenti
       directPRs.forEach(pr => {
-        allPRIds.add(pr.id);
-        findDescendants(pr.id);
+        if (!visited.has(pr.id)) {
+          allPRIds.add(pr.id);
+          findDescendants(pr.id);
+        }
       });
       
       resolve(Array.from(allPRIds));
