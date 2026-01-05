@@ -794,7 +794,9 @@ router.post('/staff/create', isAdmin, (req, res) => {
 });
 
 // Elimina utente con validazione ID
-router.post('/staff/delete', isAdmin, (req, res) => {
+// Aggiungo `addAdminFilter` per poter verificare che l'admin abbia diritto
+// di eliminare il target (solo i PR / pre_admin della sua gerarchia).
+router.post('/staff/delete', isAdmin, addAdminFilter, (req, res) => {
   const { id, ruolo } = req.body;
   
   // Validazione ID e ruolo
@@ -837,6 +839,27 @@ router.post('/staff/delete', isAdmin, (req, res) => {
     }
     
     function procediEliminazione() {
+      // AUTORIZZAZIONE: verifica che l'admin possa eliminare questo utente
+      try {
+        if (ruolo === 'pr') {
+          const filter = req.adminFilter || { prIds: [] };
+          if (!Array.isArray(filter.prIds) || !filter.prIds.includes(userId)) {
+            console.warn(`[SICUREZZA] Admin ${req.session.user && req.session.user.nickname} tentativo eliminazione PR non nella propria gerarchia: ${userId}`);
+            return res.status(403).send('Non sei autorizzato ad eliminare questo PR');
+          }
+        }
+
+        if (ruolo === 'pre_admin') {
+          const filter = req.adminFilter || { preAdminIds: [] };
+          if (!Array.isArray(filter.preAdminIds) || !filter.preAdminIds.includes(userId)) {
+            console.warn(`[SICUREZZA] Admin ${req.session.user && req.session.user.nickname} tentativo eliminazione Pre-Admin non nella propria gerarchia: ${userId}`);
+            return res.status(403).send('Non sei autorizzato ad eliminare questo Pre-Admin');
+          }
+        }
+      } catch (authErr) {
+        console.error('[ELIMINAZIONE] Errore controllo autorizzazione:', authErr);
+        return res.status(500).send('Errore controllo autorizzazione');
+      }
       // Soft delete per PR per preservare storico
       let deleteQuery = `DELETE FROM ${table} WHERE id = ?`;
       let softDeleted = false;

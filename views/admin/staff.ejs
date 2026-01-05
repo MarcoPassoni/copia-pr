@@ -249,9 +249,9 @@
                         <span>Modifica</span>
                       </button>
                       <% if (u.ruolo !== 'admin' || utenti.filter(admin => admin.ruolo === 'admin').length > 1) { %>
-                        <button class="action-btn btn-delete" 
-                                onclick="deleteUser('<%= u.id %>', '<%= u.nickname %>', '<%= u.ruolo %>')"
-                                title="Elimina utente">
+                        <button type="button" class="action-btn btn-delete"
+                          data-id="<%= u.id %>" data-nickname="<%= u.nickname %>" data-ruolo="<%= u.ruolo %>"
+                          title="Elimina utente">
                           <i class="fas fa-trash"></i>
                           <span>Elimina</span>
                         </button>
@@ -399,9 +399,9 @@
                   Modifica
                 </button>
                 <% if (u.ruolo !== 'admin' || utenti.filter(admin => admin.ruolo === 'admin').length > 1) { %>
-                  <button class="btn btn-danger-mobile" 
-                          onclick="deleteUser('<%= u.id %>', '<%= u.nickname %>', '<%= u.ruolo %>')"
-                          title="Elimina utente">
+                      <button type="button" class="btn btn-danger-mobile"
+                        data-id="<%= u.id %>" data-nickname="<%= u.nickname %>" data-ruolo="<%= u.ruolo %>"
+                        title="Elimina utente">
                     <i class="fas fa-trash"></i>
                     Elimina
                   </button>
@@ -708,6 +708,32 @@
           alert('Errore durante l\'eliminazione dell\'utente: ' + error.message);
         });
       }
+    }
+
+    // Attach click listeners to delete buttons (no inline handlers) — call deleteUser via data attrs
+    try {
+      const debugDeleteButtons = document.querySelectorAll('.btn-delete, .action-btn.btn-delete, .btn-danger-mobile');
+      debugDeleteButtons.forEach((btn, idx) => {
+        btn.addEventListener('click', (ev) => {
+          // Debug log
+          console.log('[DELETE BUTTON CLICK] index:', idx, 'classes:', btn.className, 'dataset:', {...btn.dataset}, 'closestRowId:', btn.closest('tr') ? btn.closest('tr').getAttribute('data-id') : null);
+
+          // Extract data attributes and invoke deleteUser
+          const id = btn.getAttribute('data-id');
+          const nickname = btn.getAttribute('data-nickname');
+          const ruolo = btn.getAttribute('data-ruolo');
+
+          if (id && nickname && ruolo) {
+            // Call the existing function
+            window.deleteUser(id, nickname, ruolo);
+          } else {
+            console.warn('[DEBUG] Delete button missing data attributes:', btn);
+          }
+        });
+      });
+      console.log('[DEBUG] Delete button listeners attached:', debugDeleteButtons.length);
+    } catch (dbgErr) {
+      console.error('[DEBUG] Errore attach listeners delete buttons:', dbgErr);
     }
 
     // Modal management

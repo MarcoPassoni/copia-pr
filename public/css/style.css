@@ -1246,6 +1246,14 @@ header {
     white-space: nowrap;
   }
 
+  /* Ensure delete buttons are interactable even when other overlays/styles present */
+  .btn-delete,
+  .action-btn.btn-delete,
+  .btn-danger-mobile {
+    pointer-events: auto !important;
+    z-index: 20 !important;
+  }
+
   /* Forms mobile */
   .form-row {
     flex-direction: column;
