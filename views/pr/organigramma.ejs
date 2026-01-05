@@ -1245,6 +1245,11 @@
       .organigramma-container.enhanced {
         height: 500px;
       }
+
+      /* Ensure a minimum visible area to avoid zero-height canvas */
+      .organigramma-container, .organigramma-container.enhanced {
+        min-height: 360px;
+      }
       
       .structure-info {
         grid-template-columns: 1fr;
@@ -1273,10 +1278,71 @@
 
   <!-- Dati per l'organigramma -->
   <script>
-    window.sottoStaffData = <%- JSON.stringify(sottoStaff) %>;
+    // Inizializza i dati con protezione
+    try {
+      console.log('[ORGANIGRAMMA] Inizio caricamento dati...');
+      
+      // Dati raw (potrebbe essere undefined o array)
+      const rawData = <%- JSON.stringify(sottoStaff || []) %>;
+      console.log('[ORGANIGRAMMA] Dati raw ricevuti:', typeof rawData, Array.isArray(rawData) ? 'è array' : 'non è array');
+      
+      window.sottoStaffData = Array.isArray(rawData) ? rawData : [];
+      console.log('[ORGANIGRAMMA] Dati caricati:', window.sottoStaffData.length, 'elementi');
+      
+      // Valida struttura dati
+      if (window.sottoStaffData.length > 0) {
+        const firstMember = window.sottoStaffData[0];
+        console.log('[ORGANIGRAMMA] Primo membro:', {
+          id: firstMember.id,
+          nickname: firstMember.nickname,
+          livello: firstMember.livello,
+          fk_padre: firstMember.fk_padre
+        });
+      }
+    } catch (err) {
+      console.error('[ORGANIGRAMMA] Errore caricamento dati:', err.message);
+      console.error('[ORGANIGRAMMA] Stack:', err.stack);
+      window.sottoStaffData = [];
+    }
   </script>
 
   <script>
+    // Organizational chart defensive helpers
+    window.__organigrammaInitialized = false;
+
+    function showOrganigrammaError(message) {
+      console.error('[ORGANIGRAMMA] Errore:', message);
+      let el = document.getElementById('organigramma-error');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'organigramma-error';
+        el.style.position = 'fixed';
+        el.style.left = '50%';
+        el.style.top = '20px';
+        el.style.transform = 'translateX(-50%)';
+        el.style.zIndex = 99999;
+        el.style.background = 'rgba(220,53,69,0.95)';
+        el.style.color = 'white';
+        el.style.padding = '10px 16px';
+        el.style.borderRadius = '6px';
+        el.style.boxShadow = '0 6px 18px rgba(0,0,0,0.2)';
+        document.body.appendChild(el);
+      }
+      el.textContent = 'Organigramma: ' + (message || 'Errore sconosciuto - apri console');
+    }
+
+    // Capture uncaught errors to show a friendly message
+    window.addEventListener('error', function (e) {
+      showOrganigrammaError(e.message || String(e));
+    });
+
+    // If init doesn't complete quickly, show a hint
+    setTimeout(() => {
+      if (!window.__organigrammaInitialized) {
+        showOrganigrammaError('Il caricamento sta impiegando troppo tempo. Apri la console per dettagli.');
+      }
+    }, 2000);
+
     function toggleChildren(parentId) {
       const icon = document.getElementById(`icon-${parentId}`);
       const rows = document.querySelectorAll(`[data-parent-id="${parentId}"]`);
@@ -1320,8 +1386,13 @@
 
     // Inizializzazione: mostra solo il primo livello
     document.addEventListener('DOMContentLoaded', function() {
+      console.log('[ORGANIGRAMMA] DOMContentLoaded - inizio inizializzazione');
+      console.log('[ORGANIGRAMMA] sottoStaffData disponibile:', window.sottoStaffData ? 'sì' : 'no');
+      
       // Nascondi tutti i livelli superiori al primo
       const rows = document.querySelectorAll('.data-row');
+      console.log('[ORGANIGRAMMA] Righe tabella trovate:', rows.length);
+      
       rows.forEach(row => {
         if (row.classList.contains('level-2') || 
             row.classList.contains('level-3') || 
@@ -1331,8 +1402,10 @@
         }
       });
 
+      console.log('[ORGANIGRAMMA] Inizializzazione organigramma...');
       // Inizializza l'organigramma
       initOrganigramma();
+      console.log('[ORGANIGRAMMA] DOMContentLoaded completato');
     });
 
     // Sistema Organigramma
@@ -1342,32 +1415,46 @@
     let currentMode = 'hierarchy';
     let selectedNode = null;
 
+    let animationFrameId = null;
+    
     function initOrganigramma() {
       console.log('Inizializzazione organigramma...');
+      window.__organigrammaInitialized = true;
       canvas = document.getElementById('organigramma-canvas');
       if (!canvas) {
         console.error('Canvas organigramma non trovato!');
         return;
       }
       
-      ctx = canvas.getContext('2d');
-      console.log('Canvas trovato e contesto inizializzato');
-      
-      // Imposta dimensioni canvas
-      resizeCanvas();
-      window.addEventListener('resize', resizeCanvas);
-      
-      // Crea dati per l'organigramma
-      createOrganigrammaData();
-      
-      // Eventi controlli
-      setupControls();
-      
-      // Eventi canvas
-      setupCanvasEvents();
-      
-      // Avvia animazione
-      animate();
+      try {
+        ctx = canvas.getContext('2d');
+        if (!ctx) {
+          throw new Error('Impossibile ottenere il contesto 2D del canvas');
+        }
+        console.log('Canvas trovato e contesto inizializzato');
+        
+        // Imposta dimensioni canvas
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Crea dati per l'organigramma
+        createOrganigrammaData();
+        
+        // Eventi controlli
+        setupControls();
+        
+        // Eventi canvas
+        setupCanvasEvents();
+        
+        // Avvia animazione
+        if (animationFrameId) {
+          cancelAnimationFrame(animationFrameId);
+        }
+        animate();
+      } catch (error) {
+        console.error('[ORGANIGRAMMA] Errore durante l\'inizializzazione:', error);
+        showOrganigrammaError(error.message);
+      }
     }
 
     function resizeCanvas() {
@@ -1378,117 +1465,136 @@
     }
 
     function createOrganigrammaData() {
-      nodes = [];
-      links = [];
-      
-      // ID del manager (usa stringa per evitare problemi)
-      const managerId = 'manager';
-      
-      // Aggiungi il nodo manager
-      nodes.push({
-        id: managerId,
-        name: '<%= pr.nickname %>',
-        role: 'MANAGER',
-        level: 0,
-        personePortate: 0,
-        tavoli: 0,
-        poteri: 1,
-        isManager: true,
-        x: canvas.width / 2,
-        y: 100,
-        vx: 0,
-        vy: 0,
-        fx: null,
-        fy: null,
-        radius: 45
-      });
-      
-      // Usa i dati reali del sotto-staff
-      const staffData = window.sottoStaffData || [];
-      
-      // Aggiungi i nodi del sotto-staff
-      staffData.forEach(member => {
-        const performance = (member.personePortate || 0) + (member.tavoli || 0) * 2;
-        let nodeType = 'pr-new';
-        if (performance > 20) nodeType = 'pr-high';
-        else if (performance > 5) nodeType = 'pr-normal';
+      try {
+        nodes = [];
+        links = [];
         
+        // ID del manager (usa stringa per evitare problemi)
+        const managerId = 'manager';
+        
+        // Aggiungi il nodo manager
         nodes.push({
-          id: member.id,
-          name: member.nickname,
-          role: 'PR',
-          level: member.livello || 1,
-          personePortate: member.personePortate || 0,
-          tavoli: member.tavoli || 0,
-          poteri: member.poteri || 0,
-          nodeType: nodeType,
-          performance: performance,
-          x: Math.random() * canvas.width,
-          y: Math.random() * canvas.height,
+          id: managerId,
+          name: '<%= pr.nickname %>',
+          role: 'MANAGER',
+          level: 0,
+          personePortate: 0,
+          tavoli: 0,
+          poteri: 1,
+          isManager: true,
+          x: canvas.width / 2,
+          y: 100,
           vx: 0,
           vy: 0,
           fx: null,
           fy: null,
-          radius: Math.max(25, Math.min(40, 25 + performance * 0.5))
+          radius: 45
         });
         
-        // Crea link - se non ha padre, collegalo al manager
-        let parentId = member.fk_padre;
+        // Usa i dati reali del sotto-staff
+        const staffData = window.sottoStaffData || [];
         
-        // Se non ha padre, collegalo al manager
-        if (!parentId) {
-          parentId = managerId;
-        }
+        // Log dei dati per debug
+        console.log('Staff data caricati:', staffData.length, 'elementi');
         
-        // Verifica che il parent esista nei nodi
-        const parentExists = nodes.find(n => n.id == parentId);
-        if (parentExists) {
-          links.push({
-            source: parentId,
-            target: member.id,
-            strength: 0.8
+        // Aggiungi i nodi del sotto-staff
+        staffData.forEach(member => {
+          try {
+            // Validazione dati
+            if (!member || typeof member !== 'object') {
+              console.warn('Membro sotto-staff non valido:', member);
+              return;
+            }
+            
+            const performance = (member.totale_storico_persone || member.personePortate || 0) + 
+                              (member.count_storico_tavoli || member.tavoli || 0) * 2;
+            let nodeType = 'pr-new';
+            if (performance > 20) nodeType = 'pr-high';
+            else if (performance > 5) nodeType = 'pr-normal';
+            
+            nodes.push({
+              id: member.id,
+              name: member.nickname || 'Sconosciuto',
+              role: 'PR',
+              level: member.livello || 1,
+              personePortate: member.totale_storico_persone || member.personePortate || 0,
+              tavoli: member.count_storico_tavoli || member.tavoli || 0,
+              poteri: member.poteri || 0,
+              nodeType: nodeType,
+              performance: performance,
+              x: Math.random() * (canvas.width - 100) + 50,
+              y: Math.random() * (canvas.height - 100) + 50,
+              vx: 0,
+              vy: 0,
+              fx: null,
+              fy: null,
+              radius: Math.max(25, Math.min(40, 25 + performance * 0.5))
+            });
+            
+            // Crea link - se non ha padre, collegalo al manager
+            let parentId = member.fk_padre;
+            
+            // Se non ha padre, collegalo al manager
+            if (!parentId) {
+              parentId = managerId;
+            }
+            
+            // Verifica che il parent esista nei nodi (con == per confronto numerico/stringa)
+            const parentExists = nodes.find(n => n.id == parentId);
+            if (parentExists) {
+              links.push({
+                source: parentId,
+                target: member.id,
+                strength: 0.8
+              });
+            } else {
+              // Se il parent non esiste, collega al manager
+              links.push({
+                source: managerId,
+                target: member.id,
+                strength: 0.8
+              });
+            }
+          } catch (memberError) {
+            console.error('Errore processamento membro:', member, memberError);
+          }
+        });
+        
+        // Se non ci sono dati del sotto-staff, crea un nodo placeholder
+        if (staffData.length === 0) {
+          nodes.push({
+            id: 'placeholder',
+            name: 'Nessun sotto-staff',
+            role: 'INFO',
+            level: 1,
+            personePortate: 0,
+            tavoli: 0,
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            vx: 0,
+            vy: 0,
+            fx: canvas.width / 2,
+            fy: canvas.height / 2,
+            radius: 30
           });
-        } else {
-          // Se il parent non esiste, collega al manager
+          
           links.push({
             source: managerId,
-            target: member.id,
-            strength: 0.8
+            target: 'placeholder',
+            strength: 0.5
           });
         }
-      });
-      
-      // Se non ci sono dati del sotto-staff, crea un nodo placeholder
-      if (staffData.length === 0) {
-        nodes.push({
-          id: 'placeholder',
-          name: 'Nessun sotto-staff',
-          role: 'INFO',
-          level: 1,
-          personePortate: 0,
-          tavoli: 0,
-          x: canvas.width / 2,
-          y: canvas.height / 2,
-          vx: 0,
-          vy: 0,
-          fx: canvas.width / 2,
-          fy: canvas.height / 2,
-          radius: 30
-        });
         
-        links.push({
-          source: managerId,
-          target: 'placeholder',
-          strength: 0.5
-        });
+        console.log('Manager ID:', managerId);
+        console.log('Nodes creati:', nodes.length);
+        console.log('Links creati:', links.length);
+        
+        updateLayout();
+        updateStructureInfo();
+      } catch (error) {
+        console.error('[ORGANIGRAMMA] Errore createOrganigrammaData:', error);
+        showOrganigrammaError('Errore caricamento dati organigramma');
       }
-      
-      console.log('Manager ID:', managerId);
-      console.log('Nodes:', nodes.map(n => ({ id: n.id, name: n.name, isManager: n.isManager })));
-      console.log('Links:', links);
-      
-      updateLayout();
-      updateStructureInfo();
     }
 
     function updateLayout() {
@@ -1864,139 +1970,204 @@
     }
 
     function animate() {
-      draw();
-      requestAnimationFrame(animate);
+      try {
+        // Verifica che canvas sia ancora valido
+        if (!canvas || !ctx) {
+          console.warn('[ORGANIGRAMMA] Canvas non più valido, stop animazione');
+          return;
+        }
+        
+        draw();
+      } catch (err) {
+        console.error('[ORGANIGRAMMA] Errore draw():', err);
+        showOrganigrammaError(err && err.message ? err.message : String(err));
+        return; // stop animation to avoid spamming
+      }
+      
+      // Salva l'ID del frame per permettere il cancellamento
+      animationFrameId = requestAnimationFrame(animate);
     }
 
     function draw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      ctx.save();
-      ctx.translate(transform.x, transform.y);
-      ctx.scale(transform.scale, transform.scale);
-      
-      // Disegna link con più evidenza
-      ctx.strokeStyle = '#6c757d';
-      ctx.lineWidth = 4;
-      links.forEach(link => {
-        const source = nodes.find(n => n.id == link.source); // Usa == per confronto numerico
-        const target = nodes.find(n => n.id == link.target);
-        if (source && target) {
-          // Disegna freccia
-          ctx.beginPath();
-          ctx.moveTo(source.x, source.y);
-          ctx.lineTo(target.x, target.y);
-          ctx.stroke();
-          
-          // Disegna freccia all'estremità
-          const angle = Math.atan2(target.y - source.y, target.x - source.x);
-          const arrowSize = 10;
-          
-          ctx.save();
-          ctx.translate(target.x, target.y);
-          ctx.rotate(angle);
-          ctx.beginPath();
-          ctx.moveTo(-arrowSize, -arrowSize/2);
-          ctx.lineTo(0, 0);
-          ctx.lineTo(-arrowSize, arrowSize/2);
-          ctx.fillStyle = '#6c757d';
-          ctx.fill();
+      try {
+        // Verifica precondizioni
+        if (!ctx || !nodes || !links) {
+          console.warn('[ORGANIGRAMMA] Precondizioni non soddisfatte');
+          return;
+        }
+        
+        // Pulisci canvas
+        try {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+        } catch (err) {
+          console.error('[ORGANIGRAMMA] Errore clearRect:', err);
+          return;
+        }
+        
+        // Salva stato
+        ctx.save();
+        
+        try {
+          ctx.translate(transform.x, transform.y);
+          ctx.scale(transform.scale, transform.scale);
+        } catch (err) {
+          console.error('[ORGANIGRAMMA] Errore translate/scale:', err);
           ctx.restore();
-        } else {
-          console.log('Link non trovato:', link, 'Source:', source, 'Target:', target);
-        }
-      });
-      
-      // Disegna nodi
-      nodes.forEach(node => {
-        // Determina colore basato sul tipo
-        let gradient;
-        if (node.isManager) {
-          gradient = ctx.createLinearGradient(
-            node.x - node.radius, node.y - node.radius,
-            node.x + node.radius, node.y + node.radius
-          );
-          gradient.addColorStop(0, '#667eea');
-          gradient.addColorStop(1, '#764ba2');
-        } else if (node.nodeType === 'pr-high') {
-          gradient = ctx.createLinearGradient(
-            node.x - node.radius, node.y - node.radius,
-            node.x + node.radius, node.y + node.radius
-          );
-          gradient.addColorStop(0, '#00b894');
-          gradient.addColorStop(1, '#00cec9');
-        } else if (node.nodeType === 'pr-normal') {
-          gradient = ctx.createLinearGradient(
-            node.x - node.radius, node.y - node.radius,
-            node.x + node.radius, node.y + node.radius
-          );
-          gradient.addColorStop(0, '#74b9ff');
-          gradient.addColorStop(1, '#0984e3');
-        } else if (node.nodeType === 'pr-new') {
-          gradient = ctx.createLinearGradient(
-            node.x - node.radius, node.y - node.radius,
-            node.x + node.radius, node.y + node.radius
-          );
-          gradient.addColorStop(0, '#fd79a8');
-          gradient.addColorStop(1, '#e84393');
-        } else {
-          gradient = '#bbb'; // Placeholder
+          return;
         }
         
-        // Disegna cerchio principale
-        ctx.beginPath();
-        ctx.arc(node.x, node.y, node.radius, 0, 2 * Math.PI);
-        ctx.fillStyle = gradient;
-        ctx.fill();
-        
-        // Bordo con evidenza per il manager
-        ctx.strokeStyle = node.isManager ? '#ffd700' : '#fff';
-        ctx.lineWidth = node.isManager ? 5 : 3;
-        ctx.stroke();
-        
-        // Indicatore poteri
-        if (node.poteri && !node.isManager) {
-          ctx.beginPath();
-          ctx.arc(node.x + node.radius * 0.6, node.y - node.radius * 0.6, 8, 0, 2 * Math.PI);
-          ctx.fillStyle = '#ffd700';
-          ctx.fill();
-          ctx.strokeStyle = '#fff';
-          ctx.lineWidth = 2;
-          ctx.stroke();
+        // Disegna link con più evidenza
+        try {
+          ctx.strokeStyle = '#6c757d';
+          ctx.lineWidth = 4;
           
-          // Simbolo fulmine
-          ctx.fillStyle = '#fff';
-          ctx.font = 'bold 10px Arial';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText('⚡', node.x + node.radius * 0.6, node.y - node.radius * 0.6);
+          links.forEach(link => {
+            if (!link || !link.source || !link.target) return;
+            
+            const source = nodes.find(n => n && n.id == link.source);
+            const target = nodes.find(n => n && n.id == link.target);
+            
+            if (source && target && 
+                typeof source.x === 'number' && typeof source.y === 'number' &&
+                typeof target.x === 'number' && typeof target.y === 'number') {
+              // Disegna linea
+              ctx.beginPath();
+              ctx.moveTo(source.x, source.y);
+              ctx.lineTo(target.x, target.y);
+              ctx.stroke();
+              
+              // Disegna freccia all'estremità
+              const angle = Math.atan2(target.y - source.y, target.x - source.x);
+              const arrowSize = 10;
+              
+              ctx.save();
+              ctx.translate(target.x, target.y);
+              ctx.rotate(angle);
+              ctx.beginPath();
+              ctx.moveTo(-arrowSize, -arrowSize/2);
+              ctx.lineTo(0, 0);
+              ctx.lineTo(-arrowSize, arrowSize/2);
+              ctx.fillStyle = '#6c757d';
+              ctx.fill();
+              ctx.restore();
+            }
+          });
+        } catch (err) {
+          console.error('[ORGANIGRAMMA] Errore disegno link:', err);
         }
         
-        // Corona per il manager
-        if (node.isManager) {
-          ctx.fillStyle = '#ffd700';
-          ctx.font = 'bold 16px Arial';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText('👑', node.x, node.y - node.radius - 15);
+        // Disegna nodi
+        try {
+          nodes.forEach(node => {
+            if (!node || typeof node.x !== 'number' || typeof node.y !== 'number') {
+              console.warn('[ORGANIGRAMMA] Nodo non valido:', node);
+              return;
+            }
+            
+            // Determina colore basato sul tipo
+            let gradient;
+            try {
+              if (node.isManager) {
+                gradient = ctx.createLinearGradient(
+                  node.x - node.radius, node.y - node.radius,
+                  node.x + node.radius, node.y + node.radius
+                );
+                gradient.addColorStop(0, '#667eea');
+                gradient.addColorStop(1, '#764ba2');
+              } else if (node.nodeType === 'pr-high') {
+                gradient = ctx.createLinearGradient(
+                  node.x - node.radius, node.y - node.radius,
+                  node.x + node.radius, node.y + node.radius
+                );
+                gradient.addColorStop(0, '#00b894');
+                gradient.addColorStop(1, '#00cec9');
+              } else if (node.nodeType === 'pr-normal') {
+                gradient = ctx.createLinearGradient(
+                  node.x - node.radius, node.y - node.radius,
+                  node.x + node.radius, node.y + node.radius
+                );
+                gradient.addColorStop(0, '#74b9ff');
+                gradient.addColorStop(1, '#0984e3');
+              } else if (node.nodeType === 'pr-new') {
+                gradient = ctx.createLinearGradient(
+                  node.x - node.radius, node.y - node.radius,
+                  node.x + node.radius, node.y + node.radius
+                );
+                gradient.addColorStop(0, '#fd79a8');
+                gradient.addColorStop(1, '#e84393');
+              } else {
+                gradient = '#bbb';
+              }
+              
+              // Disegna cerchio principale
+              ctx.beginPath();
+              ctx.arc(node.x, node.y, node.radius, 0, 2 * Math.PI);
+              ctx.fillStyle = gradient;
+              ctx.fill();
+              
+              // Bordo
+              ctx.strokeStyle = node.isManager ? '#ffd700' : '#fff';
+              ctx.lineWidth = node.isManager ? 5 : 3;
+              ctx.stroke();
+              
+              // Indicatore poteri
+              if (node.poteri && !node.isManager) {
+                ctx.beginPath();
+                ctx.arc(node.x + node.radius * 0.6, node.y - node.radius * 0.6, 8, 0, 2 * Math.PI);
+                ctx.fillStyle = '#ffd700';
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // Simbolo fulmine
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 10px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('⚡', node.x + node.radius * 0.6, node.y - node.radius * 0.6);
+              }
+              
+              // Corona per il manager
+              if (node.isManager) {
+                ctx.fillStyle = '#ffd700';
+                ctx.font = 'bold 16px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('👑', node.x, node.y - node.radius - 15);
+              }
+              
+              // Testo nome
+              ctx.fillStyle = '#fff';
+              ctx.font = `bold ${Math.max(10, node.radius * 0.25)}px Arial`;
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              
+              const text = node.name && node.name.length > 8 ? 
+                          node.name.substring(0, 8) + '...' : 
+                          (node.name || '?');
+              ctx.fillText(text, node.x, node.y);
+            } catch (nodeErr) {
+              console.warn('[ORGANIGRAMMA] Errore disegno nodo:', nodeErr);
+            }
+          });
+        } catch (err) {
+          console.error('[ORGANIGRAMMA] Errore disegno nodi:', err);
         }
         
-        // Testo nome
-        ctx.fillStyle = '#fff';
-        ctx.font = `bold ${Math.max(10, node.radius * 0.25)}px Arial`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
+        ctx.restore();
         
-        const text = node.name.length > 8 ? node.name.substring(0, 8) + '...' : node.name;
-        ctx.fillText(text, node.x, node.y);
-      });
-      
-      ctx.restore();
-      
-      // Aggiorna zoom percentage
-      const zoomEl = document.getElementById('zoom-percentage');
-      if (zoomEl) {
-        zoomEl.textContent = Math.round(transform.scale * 100) + '%';
+        // Aggiorna zoom percentage
+        try {
+          const zoomEl = document.getElementById('zoom-percentage');
+          if (zoomEl) {
+            zoomEl.textContent = Math.round(transform.scale * 100) + '%';
+          }
+        } catch (err) {
+          console.warn('[ORGANIGRAMMA] Errore aggiornamento zoom:', err);
+        }
+      } catch (err) {
+        console.error('[ORGANIGRAMMA] Errore generale draw():', err);
       }
     }
   </script>

@@ -735,17 +735,20 @@ router.get('/organigramma', ensurePR, async (req, res) => {
     console.timeEnd('[ORGANIGRAMMA PR] sottoStaffQuery duration');
     if (err) {
       console.error('[ORGANIGRAMMA PR] Errore query sotto-staff:', err.message);
+      console.error('[ORGANIGRAMMA PR] SQL:', sottoStaffQuery);
       return res.status(500).send('Errore nel caricamento organigramma: ' + err.message);
     }
+    
+    console.log('[ORGANIGRAMMA PR] Query sotto-staff completata, righe:', sottoStaffData ? sottoStaffData.length : 0);
     
     db.get(statisticheTotaliQuery, [userId], (err2, statisticheTotali) => {
       if (err2) {
         console.error('[ORGANIGRAMMA PR] Errore query statistiche:', err2.message);
+        console.error('[ORGANIGRAMMA PR] SQL:', statisticheTotaliQuery);
         return res.status(500).send('Errore nel caricamento statistiche: ' + err2.message);
       }
       
-      // [PRODUCTION] Removed console.log(`[ORGANIGRAMMA PR] Sotto-staff caricato: ${sottoStaffData.length} membri`)
-      // [PRODUCTION] Removed console.log(`[ORGANIGRAMMA PR] Statistiche totali:`, statisticheTotali)
+      console.log('[ORGANIGRAMMA PR] Query statistiche completata');
       
       // Trova informazioni del PR corrente
       const prCorrenteQuery = `
@@ -758,6 +761,8 @@ router.get('/organigramma', ensurePR, async (req, res) => {
           console.error('[ORGANIGRAMMA PR] Errore query PR corrente:', err3.message);
           return res.status(500).send('Errore nel caricamento dati PR: ' + err3.message);
         }
+        
+        console.log('[ORGANIGRAMMA PR] Query PR corrente completata');
         
         const pr = prCorrente || {
           nickname: req.session.user.nickname,
@@ -779,21 +784,29 @@ router.get('/organigramma', ensurePR, async (req, res) => {
         const prDecrypted = decryptUserData(pr);
         const sottoStaffDecrypted = decryptUserArray(sottoStaffData);
         
-        res.render('pr/organigramma', { 
-          pr: prDecrypted,
-          reportData: sottoStaffDecrypted,
-          sottoStaff: sottoStaffDecrypted,
-          statisticheTotali: statisticheTotali || {
-            totaleSottoStaff: 0,
-            totalePersonePortate: 0,
-            totaleValoreStorico: 0,
-            totaleTavoli: 0,
-            totaleProvvigioni: 0
-          },
-          user: req.session.user,
-          // Aggiungi flag per distinguere dalla vista admin
-          isManagerView: true
-        });
+        console.log('[ORGANIGRAMMA PR] Inizio render pagina...');
+        try {
+          res.render('pr/organigramma', { 
+            pr: prDecrypted,
+            reportData: sottoStaffDecrypted,
+            sottoStaff: sottoStaffDecrypted,
+            statisticheTotali: statisticheTotali || {
+              totaleSottoStaff: 0,
+              totalePersonePortate: 0,
+              totaleValoreStorico: 0,
+              totaleTavoli: 0,
+              totaleProvvigioni: 0
+            },
+            user: req.session.user,
+            // Aggiungi flag per distinguere dalla vista admin
+            isManagerView: true
+          });
+          console.log('[ORGANIGRAMMA PR] Render completato con successo');
+        } catch (renderErr) {
+          console.error('[ORGANIGRAMMA PR] Errore durante render:', renderErr.message);
+          console.error('[ORGANIGRAMMA PR] Stack:', renderErr.stack);
+          res.status(500).send('Errore nel rendering organigramma: ' + renderErr.message);
+        }
       });
     });
   });
