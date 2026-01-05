@@ -36,7 +36,9 @@
         
         <div class="mobile-form-group">
           <label class="mobile-form-label">👨‍💼 Supervisor:</label>
-          <select name="padre_id" id="padre-select" class="mobile-form-select"></select>
+          <select name="padre_id" id="padre-select" class="mobile-form-select" data-utenti='<%- JSON.stringify(utenti) %>'></select>
+          <!-- Hidden div per memorizzare dati form -->
+          <div id="form-data-storage" style="display:none;" data-form-data='<%- formData ? JSON.stringify(formData) : "null" %>'></div>
         </div>
         
         <div class="mobile-form-group">
@@ -154,132 +156,5 @@
         color: #2c5282;
       }
     </style>
-    <script>
-      // Dati utenti per la gerarchia
-      const utenti = JSON.parse('<%- JSON.stringify(utenti) %>');
-      
-      // Dati del form preservati (se disponibili)
-      const formData = <% if (formData) { %><%- JSON.stringify(formData) %><% } else { %>null<% } %>;
-      
-      function aggiornaPadri() {
-        const ruolo = document.getElementById('ruolo-select').value;
-        const padreSelect = document.getElementById('padre-select');
-        const selectedPadreId = formData ? formData.padre_id : null;
-        
-        padreSelect.innerHTML = '';
-        if (ruolo === 'admin') {
-          padreSelect.innerHTML = '<option value="">Nessuno</option>';
-          padreSelect.disabled = true;
-        } else if (ruolo === 'pre_admin') {
-          padreSelect.disabled = false;
-          utenti.filter(u => u.ruolo === 'admin').forEach(u => {
-            const selected = selectedPadreId == u.id ? 'selected' : '';
-            padreSelect.innerHTML += `<option value="${u.id}" ${selected}>${u.nickname} (admin)</option>`;
-          });
-        } else if (ruolo === 'pr') {
-          padreSelect.disabled = false;
-          utenti.filter(u => u.ruolo === 'admin' || u.ruolo === 'pre_admin' || u.ruolo === 'pr').forEach(u => {
-            const selected = selectedPadreId == u.id ? 'selected' : '';
-            padreSelect.innerHTML += `<option value="${u.id}" ${selected}>${u.nickname} (${u.ruolo})</option>`;
-          });
-        }
-      }
-      document.addEventListener('DOMContentLoaded', function() {
-        aggiornaPadri();
-        const ruoloSelect = document.getElementById('ruolo-select');
-        const poteriLabel = document.getElementById('poteri-label');
-        const poteriCheckbox = document.getElementById('poteri-checkbox');
-        
-        // Funzione per gestire la visibilità dei poteri PR
-        function gestisciPoteri() {
-          if (ruoloSelect.value === 'pr') {
-            poteriLabel.style.display = 'flex';
-            // Aggiungi informazioni sui poteri se non esistono già
-            if (!document.querySelector('.poteri-info')) {
-              const infoPanotteri = document.createElement('div');
-              infoPanotteri.className = 'poteri-info';
-              infoPanotteri.innerHTML = '💡 <strong>Poteri PR:</strong> Consentono di gestire altri PR e accedere a funzioni avanzate. Di default è disabilitato per sicurezza.';
-              poteriLabel.appendChild(infoPanotteri);
-            }
-          } else {
-            poteriLabel.style.display = 'none';
-            // Rimuovi le informazioni sui poteri
-            const infoPoteri = document.querySelector('.poteri-info');
-            if (infoPoteri) {
-              infoPoteri.remove();
-            }
-            // Reset del checkbox quando non è PR
-            poteriCheckbox.checked = false;
-          }
-        }
-        
-        // Gestisci il cambio di ruolo
-        ruoloSelect.addEventListener('change', function() {
-          aggiornaPadri();
-          gestisciPoteri();
-        });
-        
-        // Feedback visivo per il checkbox
-        poteriCheckbox.addEventListener('change', function() {
-          const helper = document.querySelector('.checkbox-helper');
-          if (this.checked) {
-            helper.textContent = '✅ Poteri PR attivati';
-            helper.style.color = '#2d7a2d';
-          } else {
-            helper.textContent = 'Spunta per dare poteri speciali al PR';
-            helper.style.color = '#666';
-          }
-        });
-        
-        // Inizializza la gestione dei poteri
-        gestisciPoteri();
-
-        // SOLUZIONE DEFINITIVA per il submit del form
-        const form = document.querySelector('.user-form');
-        const submitBtn = document.querySelector('.submit-button');
-        
-        console.log('🔍 Form found:', !!form);
-        console.log('🔍 Submit button found:', !!submitBtn);
-        
-        // Rimuovi tutti gli event listener esistenti dal bottone
-        if (submitBtn) {
-          const newSubmitBtn = submitBtn.cloneNode(true);
-          submitBtn.parentNode.replaceChild(newSubmitBtn, submitBtn);
-          
-          // Aggiungi il nostro event listener pulito
-          newSubmitBtn.addEventListener('click', function(e) {
-            console.log('✅ Submit button clicked!');
-            
-            // Previeni comportamenti di default
-            e.preventDefault();
-            e.stopPropagation();
-            
-            // Validazione semplice
-            const nickname = document.querySelector('input[name="nickname"]').value.trim();
-            const nome = document.querySelector('input[name="nome"]').value.trim(); 
-            const cognome = document.querySelector('input[name="cognome"]').value.trim();
-            const password = document.querySelector('input[name="password"]').value.trim();
-            const telefono = document.querySelector('input[name="numero_telefono"]').value.trim();
-            
-            if (!nickname || !nome || !cognome || !password || !telefono) {
-              alert('⚠️ Compila tutti i campi obbligatori!');
-              return false;
-            }
-            
-            console.log('✅ Validation passed, submitting form...');
-            
-            // Submit manuale del form
-            if (form) {
-              form.submit();
-            }
-          });
-        }
-
-        // Event listener per il form submit (per debug)
-        if (form) {
-          form.addEventListener('submit', function(e) {
-            console.log('🚀 Form submit event triggered! Data being sent...');
-          });
-        }
-      });
-    </script>
+    <!-- Script esterno gestisce la logica del form e popola il dropdown dai data attributes -->
+    <!-- Vedi public/js/mobile-enhancements.js -->

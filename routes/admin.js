@@ -1080,8 +1080,10 @@ router.get('/approvazioni', isAdmin, addAdminFilter, async (req, res) => {
 });
 
 // Approvazione richiesta tavolo con controllo gerarchia
-router.post('/approvazioni/approva', isAdmin, addAdminFilter, async (req, res) => {
+router.post('/approvazioni/approva', isAdmin, addAdminFilter, (req, res) => {
   const { id } = req.body;
+  
+  console.log('[APPROVA] Inizio approvazione richiesta ID:', id);
   
   try {
     // Verifica che la richiesta appartenga alla gerarchia dell'admin
@@ -1091,10 +1093,12 @@ router.post('/approvazioni/approva', isAdmin, addAdminFilter, async (req, res) =
       return res.status(403).send('Non hai PR nella tua gerarchia per approvare richieste');
     }
     
+    console.log('[APPROVA] Verifico se richiesta appartiene a gerarchia admin...');
+    
     // Controlla che la richiesta sia di un PR della gerarchia
     db.get('SELECT pr_id FROM richieste_tavoli WHERE id = ?', [id], (err, richiesta) => {
       if (err) {
-        console.error('[APPROVAZIONE] Errore query verifica:', err);
+        console.error('[APPROVA] Errore query verifica:', err);
         return res.status(500).send('Errore verifica richiesta');
       }
       
@@ -1103,23 +1107,25 @@ router.post('/approvazioni/approva', isAdmin, addAdminFilter, async (req, res) =
       }
       
       if (!filter.prIds.includes(richiesta.pr_id)) {
-        // [PRODUCTION] Removed console.log(`[SICUREZZA] Admin ${req.session.user.nickname} ha tentato di approvare richiesta di PR ${richiesta.pr_id} non nella sua gerarchia - BLOCCATO`)
+        console.log(`[APPROVA] Admin tentò di approvare richiesta di PR ${richiesta.pr_id} non nella sua gerarchia - BLOCCATO`);
         return res.status(403).send('Non puoi approvare richieste di PR non nella tua gerarchia');
       }
+      
+      console.log('[APPROVA] Controlli superati, procedo con approvazione...');
       
       // Procedi con l'approvazione
       richieste.approvaRichiestaTavolo(id, (err) => {
         if (err) {
-          console.error('[APPROVAZIONE] Errore:', err);
+          console.error('[APPROVA] Errore approvazione:', err);
           return res.status(500).send('Errore approvazione richiesta: ' + err.message);
         }
-        // [PRODUCTION] Removed console.log(`[APPROVAZIONE] Admin ${req.session.user.nickname} ha approvato richiesta ${id} - AUTORIZZATO`)
+        console.log(`[APPROVA] Richiesta ${id} approvata con successo da ${req.session.user.nickname}`);
         res.redirect('/admin/approvazioni');
       });
     });
     
   } catch (error) {
-    console.error('[APPROVAZIONE] Errore controlli sicurezza:', error);
+    console.error('[APPROVA] Errore controlli sicurezza:', error);
     res.status(500).send('Errore interno del server');
   }
 });
@@ -1169,7 +1175,132 @@ router.post('/approvazioni/rifiuta', isAdmin, addAdminFilter, async (req, res) =
   }
 });
 
-// Modifica richiesta tavolo
+// GET Modifica richiesta tavolo - mostra form di modifica
+router.get('/approvazioni/modifica/:id', isAdmin, (req, res) => {
+  const { id } = req.params;
+  
+  // Valida l'ID
+  if (!id || isNaN(id)) {
+    return res.status(400).send('ID richiesta non valido');
+  }
+  
+  // Recupera la richiesta dal database
+  db.get(
+    'SELECT * FROM richieste_tavoli WHERE id = ?',
+    [id],
+    (err, richiesta) => {
+      if (err) {
+        console.error('[MODIFICA GET] Errore query:', err);
+        return res.status(500).send('Errore recupero richiesta');
+      }
+      
+      if (!richiesta) {
+        return res.status(404).send('Richiesta non trovata');
+      }
+      
+      // Renderizza la pagina di modifica con form
+      const html = `
+        <!DOCTYPE html>
+        <html lang="it">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Modifica Prenotazione Tavolo</title>
+          <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f5f5; padding: 20px; }
+            .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+            h1 { color: #333; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }
+            .subtitle { color: #666; margin-bottom: 30px; font-size: 0.9rem; }
+            .form-group { margin-bottom: 20px; }
+            label { display: block; margin-bottom: 5px; color: #333; font-weight: 600; }
+            input, textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-family: inherit; }
+            input:focus, textarea:focus { outline: none; border-color: #3B82F6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+            textarea { resize: vertical; min-height: 80px; }
+            .info-box { background: #f0f9ff; border-left: 4px solid #3B82F6; padding: 15px; border-radius: 5px; margin-bottom: 20px; color: #0c4a6e; font-size: 0.9rem; }
+            .button-group { display: flex; gap: 10px; margin-top: 30px; }
+            .btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+            .btn-primary { background: #3B82F6; color: white; flex: 1; }
+            .btn-primary:hover { background: #2563EB; }
+            .btn-secondary { background: #e5e7eb; color: #333; }
+            .btn-secondary:hover { background: #d1d5db; }
+            .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+            @media (max-width: 600px) { .field-row { grid-template-columns: 1fr; } }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1><i class="fas fa-edit"></i> Modifica Prenotazione Tavolo</h1>
+            <p class="subtitle">Richiesta ID: <strong>${id}</strong> | PR: <strong>${richiesta.pr_nickname}</strong></p>
+            
+            <form method="POST" action="/admin/approvazioni/modifica">
+              <div class="info-box">
+                <i class="fas fa-info-circle"></i>
+                Modifica i dati della prenotazione e aggiungi una nota sul motivo delle modifiche
+              </div>
+              
+              <input type="hidden" name="id" value="${id}">
+              
+              <div class="field-row">
+                <div class="form-group">
+                  <label for="data"><i class="fas fa-calendar"></i> Data</label>
+                  <input type="date" id="data" name="data" value="${richiesta.data}" required>
+                </div>
+                <div class="form-group">
+                  <label for="numero_persone"><i class="fas fa-users"></i> Numero Persone</label>
+                  <input type="number" id="numero_persone" name="numero_persone" value="${richiesta.numero_persone}" min="1" required>
+                </div>
+              </div>
+              
+              <div class="field-row">
+                <div class="form-group">
+                  <label for="spesa_prevista"><i class="fas fa-euro-sign"></i> Spesa Prevista (€)</label>
+                  <input type="number" id="spesa_prevista" name="spesa_prevista" value="${richiesta.spesa_prevista}" min="0" step="0.01" required>
+                </div>
+                <div class="form-group">
+                  <label for="nome_tavolo"><i class="fas fa-table"></i> Nome Tavolo</label>
+                  <input type="text" id="nome_tavolo" name="nome_tavolo" value="${richiesta.nome_tavolo}" required>
+                </div>
+              </div>
+              
+              <div class="form-group">
+                <label for="omaggi"><i class="fas fa-gift"></i> Omaggi (separati da virgola)</label>
+                <input type="text" id="omaggi" name="omaggi" value="${richiesta.omaggi || ''}" placeholder="Es: Bottiglia champagne, Dolci...">
+              </div>
+              
+              <div class="form-group">
+                <label for="note_tavolo"><i class="fas fa-sticky-note"></i> Note Tavolo</label>
+                <textarea id="note_tavolo" name="note_tavolo" placeholder="Note aggiuntive per il tavolo...">${richiesta.note_tavolo || ''}</textarea>
+              </div>
+              
+              <div class="form-group">
+                <label for="note_modifiche"><i class="fas fa-edit"></i> <strong>Note Modifiche</strong> (motivo delle modifiche)</label>
+                <textarea id="note_modifiche" name="note_modifiche" placeholder="Descrivi il motivo delle modifiche apportate..." required></textarea>
+              </div>
+              
+              <div class="button-group">
+                <button type="submit" class="btn btn-primary">
+                  <i class="fas fa-save"></i>
+                  Salva Modifiche
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="history.back()">
+                  <i class="fas fa-arrow-left"></i>
+                  Indietro
+                </button>
+              </div>
+            </form>
+          </div>
+        </body>
+        </html>
+      `;
+      
+      res.send(html);
+    }
+  );
+});
+
+// POST Modifica richiesta tavolo
 router.post('/approvazioni/modifica', isAdmin, (req, res) => {
   const { id, data, numero_persone, spesa_prevista, nome_tavolo, omaggi, note_tavolo, note_modifiche } = req.body;
   
@@ -1501,7 +1632,7 @@ router.post('/register-payment', isAdmin, async (req, res) => {
     // Registra il pagamento nella tabella pagamenti_provvigioni
     const insertPaymentQuery = `
       INSERT INTO pagamenti_provvigioni 
-      (pr_destinatario_id, admin_pagante_id, importo, note_pagamento, data_pagamento) 
+      (pr_destinatario_id, pr_pagante_id, importo, note, data_pagamento) 
       VALUES (?, ?, ?, ?, datetime('now'))
     `;
     
@@ -1673,17 +1804,21 @@ router.get('/nuovo-utente', isAdmin, addAdminFilter, (req, res) => {
   // Recupera solo gli utenti che questo admin può gestire come possibili padri
   const adminFilter = req.adminFilter;
   
+  console.log('[NUOVO UTENTE] Admin:', req.session.user.nickname, 'ID:', req.session.user.id);
+  console.log('[NUOVO UTENTE] adminFilter.preAdminIds:', adminFilter.preAdminIds);
+  console.log('[NUOVO UTENTE] adminFilter.prIds:', adminFilter.prIds);
+  
   let query = `SELECT ${req.session.user.id} as id, '${req.session.user.nickname}' as nickname, 'admin' as ruolo`;
   
-  if (adminFilter.preAdminIds.length > 0) {
+  if (adminFilter.preAdminIds && adminFilter.preAdminIds.length > 0) {
     query += ` UNION ALL SELECT p.id, p.nickname, 'pre_admin' as ruolo FROM pre_admin p WHERE p.id IN (${adminFilter.preAdminIds.join(',')})`;
   }
   
-  if (adminFilter.prIds.length > 0) {
+  if (adminFilter.prIds && adminFilter.prIds.length > 0) {
     query += ` UNION ALL SELECT pr.id, pr.nickname, 'pr' as ruolo FROM pr pr WHERE pr.id IN (${adminFilter.prIds.join(',')})`;
   }
   
-  // [PRODUCTION] Removed console.log(`[NUOVO UTENTE] Admin ${req.session.user.nickname} può scegliere padri nella sua gerarchia`)
+  console.log('[NUOVO UTENTE] Query finale:', query);
   
   db.all(query, [], (err, utenti) => {
     if (err) {
@@ -1691,10 +1826,10 @@ router.get('/nuovo-utente', isAdmin, addAdminFilter, (req, res) => {
       return res.send('Errore nel recupero padri: ' + err.message);
     }
     
+    console.log('[NUOVO UTENTE] Utenti recuperati:', utenti);
+    
     const errorMessages = req.flash('error');
     const successMessages = req.flash('success');
-    
-    // [PRODUCTION] Removed console.log(`[NUOVO UTENTE] ${utenti.length} padri disponibili per admin ${req.session.user.nickname}`)
     
     res.render('admin/nuovo-utente', { 
       layout: 'admin/layout-new',

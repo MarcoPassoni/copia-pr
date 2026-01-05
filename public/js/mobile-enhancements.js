@@ -243,3 +243,170 @@ window.debugMobile = function() {
   console.log('Orientation:', window.orientation || 'unknown');
   console.log('========================');
 };
+
+// ===== GESTIONE DROPDOWN SUPERVISOR (Page nuovo-utente) ===== //
+function initNuovoUtenteForm() {
+  const padreSelect = document.getElementById('padre-select');
+  if (!padreSelect) return; // Non siamo nella pagina nuovo-utente
+  
+  console.log('[FORM] Inizializzo form nuovo-utente');
+  
+  // Leggi i dati dal data attribute
+  let utenti = [];
+  const utenteData = padreSelect.getAttribute('data-utenti');
+  if (utenteData) {
+    try {
+      utenti = JSON.parse(utenteData);
+      console.log('[FORM] Utenti caricati:', utenti);
+    } catch (e) {
+      console.error('[FORM] Errore parsing utenti:', e);
+    }
+  }
+  
+  // Leggi dati form dal storage
+  let formData = null;
+  const formDataDiv = document.getElementById('form-data-storage');
+  if (formDataDiv) {
+    const formDataAttr = formDataDiv.getAttribute('data-form-data');
+    if (formDataAttr && formDataAttr !== 'null') {
+      try {
+        formData = JSON.parse(formDataAttr);
+        console.log('[FORM] Form data ripristinati:', formData);
+      } catch (e) {
+        console.error('[FORM] Errore parsing form data:', e);
+      }
+    }
+  }
+  
+  // Funzione per aggiornare il dropdown dei padri
+  function aggiornaPadri() {
+    const ruolo = document.getElementById('ruolo-select').value;
+    const selectedPadreId = formData ? formData.padre_id : null;
+    
+    console.log('[FORM] Aggiorno padri per ruolo:', ruolo);
+    
+    padreSelect.innerHTML = '';
+    
+    if (ruolo === 'admin') {
+      padreSelect.innerHTML = '<option value="">Nessuno</option>';
+      padreSelect.disabled = true;
+    } else if (ruolo === 'pre_admin') {
+      padreSelect.disabled = false;
+      const adminList = utenti.filter(u => u.ruolo === 'admin');
+      if (adminList.length === 0) {
+        padreSelect.innerHTML = '<option value="">Nessun admin disponibile</option>';
+        padreSelect.disabled = true;
+      } else {
+        adminList.forEach(u => {
+          const selected = selectedPadreId == u.id ? 'selected' : '';
+          padreSelect.innerHTML += `<option value="${u.id}" ${selected}>${u.nickname} (admin)</option>`;
+        });
+      }
+    } else if (ruolo === 'pr') {
+      padreSelect.disabled = false;
+      const padreList = utenti.filter(u => u.ruolo === 'admin' || u.ruolo === 'pre_admin' || u.ruolo === 'pr');
+      if (padreList.length === 0) {
+        padreSelect.innerHTML = '<option value="">Nessun padre disponibile</option>';
+        padreSelect.disabled = true;
+      } else {
+        padreList.forEach(u => {
+          const selected = selectedPadreId == u.id ? 'selected' : '';
+          padreSelect.innerHTML += `<option value="${u.id}" ${selected}>${u.nickname} (${u.ruolo})</option>`;
+        });
+      }
+    }
+  }
+  
+  // Aggiungi event listener al cambio di ruolo
+  const ruoloSelect = document.getElementById('ruolo-select');
+  if (ruoloSelect) {
+    ruoloSelect.addEventListener('change', aggiornaPadri);
+    // Inizializza al caricamento
+    aggiornaPadri();
+  }
+  
+  // Gestione poteri PR
+  const poteriLabel = document.getElementById('poteri-label');
+  const poteriCheckbox = document.getElementById('poteri-checkbox');
+  
+  if (poteriLabel && poteriCheckbox && ruoloSelect) {
+    function gestisciPoteri() {
+      if (ruoloSelect.value === 'pr') {
+        poteriLabel.style.display = 'flex';
+      } else {
+        poteriLabel.style.display = 'none';
+        poteriCheckbox.checked = false;
+      }
+    }
+    
+    ruoloSelect.addEventListener('change', gestisciPoteri);
+    gestisciPoteri(); // Inizializza
+  }
+  
+  console.log('[FORM] Form nuovo-utente inizializzato');
+}
+
+// ===== PASSWORD TOGGLE BUTTONS =====
+function initPasswordToggle() {
+  console.log('[PASSWORD] Initializing password toggle handlers');
+  
+  // Event delegation per tutti i password-toggle buttons
+  document.addEventListener('click', function(e) {
+    const toggleBtn = e.target.closest('.password-toggle');
+    if (!toggleBtn) return;
+    
+    e.preventDefault();
+    e.stopPropagation();
+    
+    console.log('[PASSWORD] Toggle button clicked');
+    
+    // Ricerca il target input (può essere data-target o il precedente)
+    let targetInput = null;
+    
+    const targetId = toggleBtn.getAttribute('data-target');
+    if (targetId) {
+      targetInput = document.getElementById(targetId);
+    }
+    
+    // Fallback: cerca il precedente input
+    if (!targetInput) {
+      targetInput = toggleBtn.previousElementSibling;
+      while (targetInput && !targetInput.matches('input[type="password"], input[type="text"]')) {
+        targetInput = targetInput.previousElementSibling;
+      }
+    }
+    
+    if (!targetInput) {
+      console.warn('[PASSWORD] Target input not found for toggle button:', toggleBtn);
+      return;
+    }
+    
+    console.log('[PASSWORD] Target input found:', targetInput.id || 'unnamed');
+    
+    // Toggle the password visibility
+    const icon = toggleBtn.querySelector('i');
+    if (!icon) {
+      console.warn('[PASSWORD] Icon not found in toggle button');
+      return;
+    }
+    
+    if (targetInput.type === 'password') {
+      targetInput.type = 'text';
+      icon.classList.remove('fa-eye');
+      icon.classList.add('fa-eye-slash');
+      console.log('[PASSWORD] Password visible');
+    } else {
+      targetInput.type = 'password';
+      icon.classList.remove('fa-eye-slash');
+      icon.classList.add('fa-eye');
+      console.log('[PASSWORD] Password hidden');
+    }
+  });
+  
+  console.log('[PASSWORD] Password toggle handlers initialized');
+}
+
+// ===== INITIALIZATION =====
+// Chiama le funzioni quando il DOM è pronto
+initNuovoUtenteForm();
+initPasswordToggle();

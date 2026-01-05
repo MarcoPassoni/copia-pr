@@ -3,26 +3,46 @@ const { aggiornaAndamentoETotali, aggiornaStatsMensili } = require('./prStats');
 
 // Approva una richiesta tavolo: sposta su storico, aggiorna andamento, elimina richiesta
 function approvaRichiestaTavolo(richiestaId, callback) {
-  // [PRODUCTION] Removed console.log('[DEBUG] Inizio approvazione richiesta tavolo ID:', richiestaId)
+  console.log('[APPROVA RICHIESTA] Inizio approvazione tavolo ID:', richiestaId);
+  
+  // Timeout di sicurezza - se non finisce in 30 secondi, forza l'errore
+  let timeoutHandle = setTimeout(() => {
+    console.error('[APPROVA RICHIESTA] TIMEOUT - La richiesta ha impiegato troppo tempo');
+    timeoutHandle = null;
+    if (callback) {
+      callback(new Error('Timeout approvazione richiesta'));
+    }
+  }, 30000);
+  
+  const executeCallback = (err) => {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+      timeoutHandle = null;
+    }
+    if (callback) {
+      callback(err);
+    }
+  };
+  
   db.get('SELECT * FROM richieste_tavoli WHERE id = ?', [richiestaId], (err, richiesta) => {
     if (err) {
-      console.error('[DEBUG] Errore select richiesta:', err);
-      return callback && callback(err);
+      console.error('[APPROVA RICHIESTA] Errore select richiesta:', err);
+      return executeCallback(err);
     }
     if (!richiesta) {
-      console.error('[DEBUG] Nessuna richiesta trovata con ID:', richiestaId);
-      return callback && callback(new Error('Richiesta non trovata'));
+      console.error('[APPROVA RICHIESTA] Nessuna richiesta trovata con ID:', richiestaId);
+      return executeCallback(new Error('Richiesta non trovata'));
     }
-    // [PRODUCTION] Removed console.log('[DEBUG] Richiesta trovata:', richiesta)
+    console.log('[APPROVA RICHIESTA] Richiesta trovata, inserisco in storico...');
     db.run(`INSERT INTO storico_tavoli (pr_id, data, numero_persone, nome_tavolo, spesa_prevista, omaggi, note_tavolo, modificata, note_modifiche, modificato_da_nickname)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [richiesta.pr_id, richiesta.data, richiesta.numero_persone, richiesta.nome_tavolo, richiesta.spesa_prevista, richiesta.omaggi || '', richiesta.note_tavolo, richiesta.modificata || 0, richiesta.note_modifiche || '', richiesta.modificato_da_nickname || ''],
       function(err2) {
         if (err2) {
-          console.error('[DEBUG] Errore insert storico_tavoli:', err2);
-          return callback && callback(err2);
+          console.error('[APPROVA RICHIESTA] Errore insert storico_tavoli:', err2);
+          return executeCallback(err2);
         }
-        // [PRODUCTION] Removed console.log('[DEBUG] Inserito in storico_tavoli, aggiorno provvigioni e totali PR...')
+        console.log('[APPROVA RICHIESTA] Inserito in storico, aggiorno stats mensili...');
         
         // Calcolo per statistiche mensili
         const dataObj = new Date(richiesta.data);
@@ -35,32 +55,33 @@ function approvaRichiestaTavolo(richiestaId, callback) {
         
         aggiornaStatsMensili(richiesta.pr_id, anno, mese, richiesta.numero_persone, 1, provvigioniCalcolate, (errStats) => {
           if (errStats) {
-            console.error('[DEBUG] Errore aggiornamento statistiche mensili:', errStats);
+            console.error('[APPROVA RICHIESTA] Errore aggiornamento statistiche mensili:', errStats);
             // Non blocchiamo il flusso per questo errore
           } else {
-            // [PRODUCTION] Removed console.log('[DEBUG] Statistiche mensili aggiornate per PR:', richiesta.pr_id)
+            console.log('[APPROVA RICHIESTA] Stats mensili aggiornate');
           }
           
           // Continua con aggiornamento provvigioni e totali del PR
+          console.log('[APPROVA RICHIESTA] Aggiorno provvigioni e totali PR...');
           aggiornaProvvigioniETotaliPR(richiesta.pr_id, richiesta.numero_persone, richiesta.spesa_prevista, (err3) => {
             if (err3) {
-              console.error('[DEBUG] Errore aggiornaProvvigioniETotaliPR:', err3);
-              return callback && callback(err3);
+              console.error('[APPROVA RICHIESTA] Errore aggiornaProvvigioniETotaliPR:', err3);
+              return executeCallback(err3);
             }
-            // [PRODUCTION] Removed console.log('[DEBUG] Provvigioni e totali PR aggiornati, aggiorno andamento...')
+            console.log('[APPROVA RICHIESTA] Provvigioni aggiornate, aggiorno andamento...');
             aggiornaAndamentoETotali(richiesta.pr_id, richiesta.data, richiesta.numero_persone, richiesta.spesa_prevista, (err4) => {
               if (err4) {
-                console.error('[DEBUG] Errore aggiornaAndamentoETotali:', err4);
-                return callback && callback(err4);
+                console.error('[APPROVA RICHIESTA] Errore aggiornaAndamentoETotali:', err4);
+                return executeCallback(err4);
               }
-              // [PRODUCTION] Removed console.log('[DEBUG] Andamento aggiornato, elimino richiesta_tavoli...')
+              console.log('[APPROVA RICHIESTA] Andamento aggiornato, elimino richiesta tavolo...');
               db.run('DELETE FROM richieste_tavoli WHERE id = ?', [richiestaId], function(err5) {
                 if (err5) {
-                  console.error('[DEBUG] Errore delete richiesta_tavoli:', err5);
-                  return callback && callback(err5);
+                  console.error('[APPROVA RICHIESTA] Errore delete richiesta_tavoli:', err5);
+                  return executeCallback(err5);
                 }
-                // [PRODUCTION] Removed console.log('[DEBUG] Richiesta tavolo approvata e rimossa con successo. [FINE FLUSSO]')
-                callback && callback(null);
+                console.log('[APPROVA RICHIESTA] ✅ Richiesta tavolo approvata e rimossa con successo');
+                executeCallback(null);
               });
             });
           });

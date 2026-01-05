@@ -305,7 +305,7 @@
             
             <div class="card-footer">
               <% if (pr.puo_pagare && (pr.guadagno_totale || 0) > 0) { %>
-                <button class="btn btn-success pay-btn" onclick="openPaymentModal(<%= pr.id %>, '<%= pr.nickname %>', <%= (pr.guadagno_totale || 0).toFixed(2) %>)">
+                <button class="btn btn-success pay-btn" data-pr-id="<%= pr.id %>" data-nickname="<%= pr.nickname %>" data-amount="<%= (pr.guadagno_totale || 0).toFixed(2) %>">
                   <i class="fas fa-euro-sign"></i>
                   PAGA €<%= (pr.guadagno_totale || 0).toFixed(2) %>
                 </button>
@@ -427,7 +427,7 @@
                   
                   <td class="actions-cell">
                     <% if (pr.puo_pagare && (pr.guadagno_totale || 0) > 0) { %>
-                      <button class="btn btn-success btn-sm pay-btn" onclick="openPaymentModal(<%= pr.id %>, '<%= pr.nickname %>', <%= (pr.guadagno_totale || 0).toFixed(2) %>)">
+                      <button class="btn btn-success btn-sm pay-btn" data-pr-id="<%= pr.id %>" data-nickname="<%= pr.nickname %>" data-amount="<%= (pr.guadagno_totale || 0).toFixed(2) %>">
                         <i class="fas fa-euro-sign"></i>
                         PAGA
                       </button>
@@ -493,11 +493,11 @@
     </div>
     
     <div class="modal-footer">
-      <button type="button" class="btn btn-success" onclick="confirmPayment()">
+      <button type="button" class="btn btn-success confirm-payment-btn">
         <i class="fas fa-check"></i>
         Conferma Pagamento
       </button>
-      <button type="button" class="btn btn-secondary" onclick="closePaymentModal()">
+      <button type="button" class="btn btn-secondary cancel-payment-btn">
         <i class="fas fa-times"></i>
         Annulla
       </button>
@@ -1313,95 +1313,5 @@ body {
 }
 </style>
 
-<script>
-// Modal per pagamenti
-const paymentModal = document.getElementById('paymentModal');
-const closeBtn = document.querySelector('.close');
-
-// Make functions globally accessible
-window.openPaymentModal = function(prId, nickname, amount) {
-  console.log('[PAYMENT MODAL] Apertura modal per PR:', prId, nickname, amount);
-  
-  if (!paymentModal) {
-    console.error('[PAYMENT MODAL] Modal non trovato!');
-    alert('Errore: modal pagamento non trovato');
-    return;
-  }
-  
-  document.getElementById('payment-pr-id').value = prId;
-  document.getElementById('payment-pr-name').textContent = nickname;
-  document.getElementById('payment-amount').textContent = `€${amount}`;
-  document.getElementById('payment-amount-value').value = amount;
-  
-  paymentModal.style.display = 'block';
-  document.body.style.overflow = 'hidden';
-  
-  console.log('[PAYMENT MODAL] Modal aperto con successo');
-}
-
-window.closePaymentModal = function() {
-  console.log('[PAYMENT MODAL] Chiusura modal');
-  paymentModal.style.display = 'none';
-  document.body.style.overflow = '';
-  document.getElementById('payment-notes').value = '';
-}
-
-window.confirmPayment = function() {
-  const prId = document.getElementById('payment-pr-id').value;
-  const amount = document.getElementById('payment-amount-value').value;
-  const notes = document.getElementById('payment-notes').value;
-  
-  console.log('[PAYMENT] Invio pagamento:', { prId, amount, notes });
-  
-  if (!prId || !amount) {
-    alert('Dati mancanti per il pagamento');
-    return;
-  }
-  
-  // Invia richiesta di pagamento
-  fetch('/admin/register-payment', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      prId: parseInt(prId),
-      amount: parseFloat(amount),
-      notes: notes
-    })
-  })
-  .then(response => response.json())
-  .then(data => {
-    console.log('[PAYMENT] Risposta server:', data);
-    if (data.success) {
-      alert('Pagamento registrato con successo!');
-      location.reload();
-    } else {
-      alert('Errore durante la registrazione del pagamento: ' + (data.error || 'Errore sconosciuto'));
-    }
-  })
-  .catch(error => {
-    console.error('[PAYMENT] Errore:', error);
-    alert('Errore durante la comunicazione con il server');
-  });
-  
-  closePaymentModal();
-}
-
-// Event listeners
-closeBtn.addEventListener('click', closePaymentModal);
-
-window.addEventListener('click', function(event) {
-  if (event.target === paymentModal) {
-    closePaymentModal();
-  }
-});
-
-document.addEventListener('keydown', function(event) {
-  if (event.key === 'Escape' && paymentModal.style.display === 'block') {
-    closePaymentModal();
-  }
-});
-
-console.log('🚀 Aura Report Gerarchico caricato!');
-</script>
+<!-- Payment Modal Script - CSP compliant -->
+  <script src="/js/payment-modal.js"></script>
